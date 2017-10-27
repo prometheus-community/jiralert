@@ -1,0 +1,33 @@
+# Global defaults, applied to all receivers where not explicitly overridden. (optional)
+defaults:
+  # API access fields
+  api_url: https://jiralert.atlassian.net
+  user: jiralert
+  password: 'JIRAlert'
+
+  # The type of JIRA issue to create (required)
+  issue_type: Bug
+  # Issue priority (optional)
+  priority: Critical
+  # Go template invocation for generating the summary (required) 
+  summary: '{{ template "jira.default.summary" . }}'
+  # Go template invocation for generating the description (optional)
+  description: '{{ template "jira.default.description" . }}'
+  # State to transition into when reopening a closed issue (required)
+  reopen_state: To Do
+  # Do not reopen issues with this resolution (optional)
+  wont_fix_resolution: Won't Fix
+
+# Receiver definitions. At least one must be defined.
+receivers:
+    # Must match the Alertmanager receiver name (required) 
+  - name: 'jira-ab'
+    # JIRA project to create the issue in (required)
+    project: AB
+
+  - name: 'jira-xy'
+    project: XY
+    issue_type: Task
+    # Standard or custom field values to set on created issue (optional)
+    fields:
+      foo: bar
