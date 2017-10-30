@@ -1,6 +1,7 @@
 package jiralert
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -8,39 +9,35 @@ import (
 
 	"github.com/andygrunwald/go-jira"
 	"github.com/prometheus/alertmanager/template"
-	"github.com/prometheus/alertmanager/types"
 	"github.com/prometheus/common/log"
 	"github.com/trivago/tgo/tcontainer"
-	"golang.org/x/net/context"
 )
 
 type Jira struct {
 	conf *JiraConfig
-	tmpl *template.Template
+	tmpl *Template
 }
 
-func NewJira(c *JiraConfig, t *template.Template) *Jira {
+func NewJira(c *JiraConfig, t *Template) *Jira {
 	return &Jira{conf: c, tmpl: t}
 }
 
 // Notify implements the Notifier interface.
-func (n *Jira) Notify(ctx context.Context, as ...*types.Alert) (bool, error) {
+func (n *Jira) Notify(data *template.Data) (bool, error) {
 	client, err := jira.NewClient(http.DefaultClient, n.conf.APIURL)
 	if err != nil {
 		return false, err
 	}
 	client.Authentication.SetBasicAuth(n.conf.User, string(n.conf.Password))
 
-	data := n.tmpl.Data(receiverName(ctx), groupLabels(ctx), as...)
-	tmpl := tmplText(n.tmpl, data, &err)
-
-	project := tmpl(n.conf.Project)
-	// check errors from tmpl()
-	if err != nil {
-		return false, err
+	project := n.tmpl.Execute(n.conf.Project, data)
+	// check errors from n.tmpl.Execute()
+	if n.tmpl.err != nil {
+		return false, n.tmpl.err
 	}
+
 	// Looks like an ALERT metric name, with spaces removed.
-	issueLabel := "ALERT" + strings.Replace(groupLabels(ctx).String(), " ", "", -1)
+	issueLabel := toIssueLabel(data.GroupLabels)
 	issue, retry, err := n.search(client, project, issueLabel)
 	if err != nil {
 		return retry, err
@@ -66,9 +63,9 @@ func (n *Jira) Notify(ctx context.Context, as ...*types.Alert) (bool, error) {
 	issue = &jira.Issue{
 		Fields: &jira.IssueFields{
 			Project:     jira.Project{Key: project},
-			Type:        jira.IssueType{Name: tmpl(n.conf.IssueType)},
-			Description: tmpl(n.conf.Description),
-			Summary:     tmpl(n.conf.Summary),
+			Type:        jira.IssueType{Name: n.tmpl.Execute(n.conf.IssueType, data)},
+			Description: n.tmpl.Execute(n.conf.Description, data),
+			Summary:     n.tmpl.Execute(n.conf.Summary, data),
 			Labels: []string{
 				issueLabel,
 			},
@@ -76,16 +73,27 @@ func (n *Jira) Notify(ctx context.Context, as ...*types.Alert) (bool, error) {
 		},
 	}
 	if n.conf.Priority != "" {
-		issue.Fields.Priority = &jira.Priority{Name: tmpl(n.conf.Priority)}
+		issue.Fields.Priority = &jira.Priority{Name: n.tmpl.Execute(n.conf.Priority, data)}
 	}
 	for key, value := range n.conf.Fields {
-		issue.Fields.Unknowns[key] = tmpl(fmt.Sprint(value))
+		issue.Fields.Unknowns[key] = n.tmpl.Execute(fmt.Sprint(value), data)
 	}
-	// check errors from tmpl()
-	if err != nil {
-		return false, err
+	// check errors from n.tmpl.Execute()
+	if n.tmpl.err != nil {
+		return false, n.tmpl.err
 	}
 	return n.create(client, issue)
+}
+
+// toIssueLabel returns the group labels in the form of an ALERT metric name, with all spaces removed.
+func toIssueLabel(groupLabels template.KV) string {
+	buf := bytes.NewBufferString("ALERT{")
+	for _, p := range groupLabels.SortedPairs() {
+		buf.WriteString(p.Name)
+		buf.WriteString(fmt.Sprintf("=%q", p.Value))
+	}
+	buf.WriteString("}")
+	return strings.Replace(buf.String(), " ", "", -1)
 }
 
 func (n *Jira) search(client *jira.Client, project, issueLabel string) (*jira.Issue, bool, error) {

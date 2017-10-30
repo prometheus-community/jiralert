@@ -1,6 +1,6 @@
-{{ define "jira.default.summary" }}{{ template "__subject" . }}{{ end }}
+{{ define "jira.summary" }}{{ template "__subject" . }}{{ end }}
 
-{{ define "jira.default.description" }}{{ range .Alerts.Firing }}Labels:
+{{ define "jira.description" }}{{ range .Alerts.Firing }}Labels:
 {{ range .Labels.SortedPairs }} - {{ .Name }} = {{ .Value }}
 {{ end }}
 Annotations:

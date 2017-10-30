@@ -26,8 +26,8 @@ func (s *Secret) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return unmarshal((*plain)(s))
 }
 
-// Load parses the YAML input into a Config.
-func Load(s string) (*Config, error) {
+// LoadConfig parses the YAML input into a Config.
+func LoadConfig(s string) (*Config, error) {
 	cfg := &Config{}
 	err := yaml.Unmarshal([]byte(s), cfg)
 	if err != nil {
@@ -36,13 +36,13 @@ func Load(s string) (*Config, error) {
 	return cfg, nil
 }
 
-// LoadFile parses the given YAML file into a Config.
-func LoadFile(filename string) (*Config, []byte, error) {
+// LoadConfigFile parses the given YAML file into a Config.
+func LoadConfigFile(filename string) (*Config, []byte, error) {
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, nil, err
 	}
-	cfg, err := Load(string(content))
+	cfg, err := LoadConfig(string(content))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -61,9 +61,7 @@ func resolveFilepaths(baseDir string, cfg *Config) {
 		return fp
 	}
 
-	for i, tf := range cfg.Templates {
-		cfg.Templates[i] = join(tf)
-	}
+	cfg.Template = join(cfg.Template)
 }
 
 var (
@@ -114,7 +112,7 @@ func (jc *JiraConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 type Config struct {
 	Defaults  *JiraConfig   `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 	Receivers []*JiraConfig `yaml:"receivers,omitempty" json:"receivers,omitempty"`
-	Templates []string      `yaml:"templates" json:"templates"`
+	Template  string        `yaml:"template" json:"template"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline" json:"-"`
@@ -209,7 +207,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		if len(c.Defaults.Fields) > 0 {
 			for key, value := range c.Defaults.Fields {
 				if _, ok := jc.Fields[key]; !ok {
-					jc.Fields[key] = c.Defaults.Fields[key]
+					jc.Fields[key] = value
 				}
 			}
 		}
@@ -219,7 +217,21 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return fmt.Errorf("no receivers defined")
 	}
 
+	if c.Template == "" {
+		return fmt.Errorf("missing template file")
+	}
+
 	return checkOverflow(c.XXX, "config")
+}
+
+// ReceiverByName loops the receiver list and returns the first instance with that name
+func (c *Config) ReceiverByName(name string) *JiraConfig {
+	for _, r := range c.Receivers {
+		if r.Name == name {
+			return r
+		}
+	}
+	return nil
 }
 
 func checkOverflow(m map[string]interface{}, ctx string) error {
