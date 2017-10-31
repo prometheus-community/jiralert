@@ -7,102 +7,109 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/alin-sinpalean/jiralert/alertmanager"
 	"github.com/andygrunwald/go-jira"
-	"github.com/prometheus/alertmanager/template"
-	"github.com/prometheus/common/log"
+	log "github.com/golang/glog"
 	"github.com/trivago/tgo/tcontainer"
 )
 
-type Jira struct {
-	conf *JiraConfig
-	tmpl *Template
+type Receiver struct {
+	conf   *ReceiverConfig
+	tmpl   *Template
+	client *jira.Client
 }
 
-func NewJira(c *JiraConfig, t *Template) *Jira {
-	return &Jira{conf: c, tmpl: t}
+func NewReceiver(c *ReceiverConfig, t *Template) (*Receiver, error) {
+	client, err := jira.NewClient(http.DefaultClient, c.APIURL)
+	if err != nil {
+		return nil, err
+	}
+	client.Authentication.SetBasicAuth(c.User, string(c.Password))
+
+	return &Receiver{conf: c, tmpl: t, client: client}, nil
 }
 
 // Notify implements the Notifier interface.
-func (n *Jira) Notify(data *template.Data) (bool, error) {
-	client, err := jira.NewClient(http.DefaultClient, n.conf.APIURL)
-	if err != nil {
-		return false, err
+func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
+	project := r.tmpl.Execute(r.conf.Project, data)
+	// check errors from r.tmpl.Execute()
+	if r.tmpl.err != nil {
+		return false, r.tmpl.err
 	}
-	client.Authentication.SetBasicAuth(n.conf.User, string(n.conf.Password))
-
-	project := n.tmpl.Execute(n.conf.Project, data)
-	// check errors from n.tmpl.Execute()
-	if n.tmpl.err != nil {
-		return false, n.tmpl.err
-	}
-
 	// Looks like an ALERT metric name, with spaces removed.
 	issueLabel := toIssueLabel(data.GroupLabels)
-	issue, retry, err := n.search(client, project, issueLabel)
+
+	issue, retry, err := r.search(project, issueLabel)
 	if err != nil {
 		return retry, err
 	}
 
 	if issue != nil {
-		log.Debugf("Found existing issue: %+v", issue)
-		// The set of Jira status categories is fixed, this is a safe check to make.
+		// The set of JIRA status categories is fixed, this is a safe check to make.
 		if issue.Fields.Status.StatusCategory.Key != "done" {
 			// Issue is in a "to do" or "in progress" state, all done here.
-			log.Debugf("Issue %s for %s is unresolved, nothing to do", issue.Key, issueLabel)
+			log.V(1).Infof("Issue %s for %s is unresolved, nothing to do", issue.Key, issueLabel)
 			return false, nil
 		}
-		if n.conf.WontFixResolution != "" && issue.Fields.Resolution.Name == n.conf.WontFixResolution {
-			// Issue is resolved as "Won't Fix" or equivalent, log a warning just in case.
-			log.Warnf("Issue %s for %s is resolved as %q, not reopening", issue.Key, issueLabel, issue.Fields.Resolution.Name)
+		if r.conf.WontFixResolution != "" && issue.Fields.Resolution.Name == r.conf.WontFixResolution {
+			// Issue is resolved as "Won't Fix" or equivalent, log a message just in case.
+			log.Infof("Issue %s for %s is resolved as %q, not reopening", issue.Key, issueLabel, issue.Fields.Resolution.Name)
 			return false, nil
 		}
-		log.Debugf("Issue %s for %s was resolved, reopening", issue.Key, issueLabel)
-		return n.reopen(client, issue.Key)
+		log.Infof("Issue %s for %s was resolved, reopening", issue.Key, issueLabel)
+		return r.reopen(issue.Key)
 	}
 
+	log.Infof("No issue matching %s found, creating new issue", issueLabel)
 	issue = &jira.Issue{
 		Fields: &jira.IssueFields{
 			Project:     jira.Project{Key: project},
-			Type:        jira.IssueType{Name: n.tmpl.Execute(n.conf.IssueType, data)},
-			Description: n.tmpl.Execute(n.conf.Description, data),
-			Summary:     n.tmpl.Execute(n.conf.Summary, data),
+			Type:        jira.IssueType{Name: r.tmpl.Execute(r.conf.IssueType, data)},
+			Description: r.tmpl.Execute(r.conf.Description, data),
+			Summary:     r.tmpl.Execute(r.conf.Summary, data),
 			Labels: []string{
 				issueLabel,
 			},
 			Unknowns: tcontainer.NewMarshalMap(),
 		},
 	}
-	if n.conf.Priority != "" {
-		issue.Fields.Priority = &jira.Priority{Name: n.tmpl.Execute(n.conf.Priority, data)}
+	if r.conf.Priority != "" {
+		issue.Fields.Priority = &jira.Priority{Name: r.tmpl.Execute(r.conf.Priority, data)}
 	}
-	for key, value := range n.conf.Fields {
-		issue.Fields.Unknowns[key] = n.tmpl.Execute(fmt.Sprint(value), data)
+	for key, value := range r.conf.Fields {
+		issue.Fields.Unknowns[key] = r.tmpl.Execute(fmt.Sprint(value), data)
 	}
-	// check errors from n.tmpl.Execute()
-	if n.tmpl.err != nil {
-		return false, n.tmpl.err
+	// check errors from r.tmpl.Execute()
+	if r.tmpl.err != nil {
+		return false, r.tmpl.err
 	}
-	return n.create(client, issue)
+	retry, err = r.create(issue)
+	if err != nil {
+		log.Infof("Issue created: key=%s ID=%s", issue.Key, issue.ID)
+	}
+	return retry, err
 }
 
 // toIssueLabel returns the group labels in the form of an ALERT metric name, with all spaces removed.
-func toIssueLabel(groupLabels template.KV) string {
+func toIssueLabel(groupLabels alertmanager.KV) string {
 	buf := bytes.NewBufferString("ALERT{")
 	for _, p := range groupLabels.SortedPairs() {
 		buf.WriteString(p.Name)
-		buf.WriteString(fmt.Sprintf("=%q", p.Value))
+		buf.WriteString(fmt.Sprintf("=%q,", p.Value))
 	}
+	buf.Truncate(buf.Len() - 1)
 	buf.WriteString("}")
 	return strings.Replace(buf.String(), " ", "", -1)
 }
 
-func (n *Jira) search(client *jira.Client, project, issueLabel string) (*jira.Issue, bool, error) {
+func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error) {
 	query := fmt.Sprintf("project=%s and labels=%q order by key", project, issueLabel)
 	options := &jira.SearchOptions{
 		Fields:     []string{"summary", "status", "resolution"},
 		MaxResults: 50,
 	}
-	issues, resp, err := client.Issue.Search(query, options)
+	log.V(1).Infof("search: query=%v options=%+v", query, options)
+	issues, resp, err := r.client.Issue.Search(query, options)
 	if err != nil {
 		retry, err := handleJiraError(resp, err)
 		return nil, retry, err
@@ -112,44 +119,50 @@ func (n *Jira) search(client *jira.Client, project, issueLabel string) (*jira.Is
 			// Swallow it, but log an error.
 			log.Errorf("More than one issue matched %s, will only update first: %+v", query, issues)
 		}
+		log.V(1).Infof("  found: %+v", issues[0])
 		return &issues[0], false, nil
 	}
+	log.V(1).Infof("  no results")
 	return nil, false, nil
 }
 
-func (n *Jira) reopen(client *jira.Client, issueKey string) (bool, error) {
-	transitions, resp, err := client.Issue.GetTransitions(issueKey)
+func (r *Receiver) reopen(issueKey string) (bool, error) {
+	transitions, resp, err := r.client.Issue.GetTransitions(issueKey)
 	if err != nil {
 		return handleJiraError(resp, err)
 	}
 	for _, t := range transitions {
-		if t.Name == n.conf.ReopenState {
-			resp, err = client.Issue.DoTransition(issueKey, t.ID)
+		if t.Name == r.conf.ReopenState {
+			log.V(1).Infof("reopen: issueKey=%v transitionID=%v", issueKey, t.ID)
+			resp, err = r.client.Issue.DoTransition(issueKey, t.ID)
 			if err != nil {
 				return handleJiraError(resp, err)
 			}
+			log.V(1).Infof("  done")
 			return false, nil
 		}
 	}
-	return false, fmt.Errorf("Jira state %q does not exist or no transition possible for %s", n.conf.ReopenState, issueKey)
+	return false, fmt.Errorf("JIRA state %q does not exist or no transition possible for %s", r.conf.ReopenState, issueKey)
 }
 
-func (n *Jira) create(client *jira.Client, issue *jira.Issue) (bool, error) {
-	issue, resp, err := client.Issue.Create(issue)
+func (r *Receiver) create(issue *jira.Issue) (bool, error) {
+	log.V(1).Infof("create: issue=%v", *issue)
+	issue, resp, err := r.client.Issue.Create(issue)
 	if err != nil {
 		return handleJiraError(resp, err)
 	}
 
-	log.Debugf("Created issue %s (ID: %s)", issue.Key, issue.ID)
+	log.V(1).Infof("  done: key=%s ID=%s", issue.Key, issue.ID)
 	return false, nil
 }
 
 func handleJiraError(resp *jira.Response, err error) (bool, error) {
+	log.V(1).Infof("handleJiraError: err=%s, req=%s", err, resp.Request.URL)
 	if resp != nil && resp.StatusCode/100 != 2 {
 		retry := resp.StatusCode == 500 || resp.StatusCode == 503
 		body, _ := ioutil.ReadAll(resp.Body)
 		// go-jira error message is not particularly helpful, replace it
-		return retry, fmt.Errorf("Jira request %s returned status %d, body %q", resp.Request.URL.String(), resp.Status, string(body))
+		return retry, fmt.Errorf("JIRA request %s returned status %s, body %q", resp.Request.URL, resp.Status, string(body))
 	}
 	return false, err
 }

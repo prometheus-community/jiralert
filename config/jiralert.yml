@@ -14,9 +14,9 @@ defaults:
   # Go template invocation for generating the description. Optional.
   description: '{{ template "jira.description" . }}'
   # State to transition into when reopening a closed issue. Required.
-  reopen_state: To Do
+  reopen_state: "To Do"
   # Do not reopen issues with this resolution. Optional.
-  wont_fix_resolution: Won't Fix
+  wont_fix_resolution: "Won't Fix"
 
 # Receiver definitions. At least one must be defined.
 receivers:
@@ -33,4 +33,4 @@ receivers:
       foo: bar
 
 # File containing template definitions. Required.
-templates: default.tmpl
+template: jiralert.tmpl

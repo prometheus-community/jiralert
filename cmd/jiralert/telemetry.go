@@ -6,9 +6,9 @@ var (
 	requestTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "jiralert_requests_total",
-			Help: "Requests processed, by status code and provider.",
+			Help: "Requests processed, by receiver and status code.",
 		},
-		[]string{"code", "provider"},
+		[]string{"receiver", "code"},
 	)
 )
 

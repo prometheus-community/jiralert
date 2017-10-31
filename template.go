@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"regexp"
 	"strings"
-
 	"text/template"
+
+	log "github.com/golang/glog"
 )
 
 type Template struct {
@@ -29,17 +30,18 @@ var funcs = template.FuncMap{
 }
 
 func LoadTemplate(path string) (*Template, error) {
+	log.V(1).Infof("Loading templates from %q", path)
 	tmpl, err := template.New("").Option("missingkey=zero").Funcs(funcs).ParseFiles(path)
 	if err != nil {
 		return nil, err
 	}
-	return &Template{
-		tmpl: tmpl,
-	}, err
+	return &Template{tmpl: tmpl}, nil
 }
 
 func (t *Template) Execute(text string, data interface{}) string {
+	log.V(2).Infof("Executing template %q...", text)
 	if !strings.Contains(text, "{{") {
+		log.V(2).Infof("  returning unchanged.")
 		return text
 	}
 
@@ -53,9 +55,12 @@ func (t *Template) Execute(text string, data interface{}) string {
 	}
 	tmpl, t.err = tmpl.New("").Parse(text)
 	if t.err != nil {
+		log.V(2).Infof("  parse failed.")
 		return ""
 	}
 	var buf bytes.Buffer
 	t.err = tmpl.Execute(&buf, data)
-	return buf.String()
+	ret := buf.String()
+	log.V(2).Infof("  returning %q.", ret)
+	return ret
 }

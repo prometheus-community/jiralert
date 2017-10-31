@@ -3,9 +3,11 @@ package jiralert
 import (
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"path/filepath"
 	"strings"
 
+	log "github.com/golang/glog"
 	"gopkg.in/yaml.v2"
 )
 
@@ -33,11 +35,13 @@ func LoadConfig(s string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.V(1).Infof("Loaded config:\n%+v", cfg)
 	return cfg, nil
 }
 
 // LoadConfigFile parses the given YAML file into a Config.
 func LoadConfigFile(filename string) (*Config, []byte, error) {
+	log.V(1).Infof("Loading configuration from %q", filename)
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, nil, err
@@ -55,27 +59,18 @@ func LoadConfigFile(filename string) (*Config, []byte, error) {
 // with a given base directory.
 func resolveFilepaths(baseDir string, cfg *Config) {
 	join := func(fp string) string {
-		if len(fp) > 0 && !filepath.IsAbs(fp) {
-			fp = filepath.Join(baseDir, fp)
+		if len(fp) == 0 || filepath.IsAbs(fp) {
+			return fp
 		}
-		return fp
+		absFp := filepath.Join(baseDir, fp)
+		log.V(2).Infof("Relative path %q resolved to %q", fp, absFp)
+		return absFp
 	}
 
 	cfg.Template = join(cfg.Template)
 }
 
-var (
-	// DefaultJiraConfig defines default values for Jira configurations.
-	DefaultJiraConfig = JiraConfig{
-		IssueType:   `Bug`,
-		Priority:    `Critical`,
-		Summary:     `{{ template "jira.default.summary" . }}`,
-		Description: `{{ template "jira.default.description" . }}`,
-		ReopenState: `To Do`,
-	}
-)
-
-type JiraConfig struct {
+type ReceiverConfig struct {
 	Name string `yaml:"name" json:"name"`
 
 	// API access fields
@@ -100,19 +95,19 @@ type JiraConfig struct {
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
-func (jc *JiraConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type plain JiraConfig
-	if err := unmarshal((*plain)(jc)); err != nil {
+func (rc *ReceiverConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain ReceiverConfig
+	if err := unmarshal((*plain)(rc)); err != nil {
 		return err
 	}
-	return checkOverflow(jc.XXX, "receiver")
+	return checkOverflow(rc.XXX, "receiver")
 }
 
 // Config is the top-level configuration for JIRAlert's config file.
 type Config struct {
-	Defaults  *JiraConfig   `yaml:"defaults,omitempty" json:"defaults,omitempty"`
-	Receivers []*JiraConfig `yaml:"receivers,omitempty" json:"receivers,omitempty"`
-	Template  string        `yaml:"template" json:"template"`
+	Defaults  *ReceiverConfig   `yaml:"defaults,omitempty" json:"defaults,omitempty"`
+	Receivers []*ReceiverConfig `yaml:"receivers,omitempty" json:"receivers,omitempty"`
+	Template  string            `yaml:"template" json:"template"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline" json:"-"`
@@ -136,78 +131,74 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
-	// If a defaults block was open but empty, the defaults config is overwritten.
-	// We have to restore it here.
-	if c.Defaults == nil {
-		c.Defaults = &JiraConfig{}
-		*c.Defaults = DefaultJiraConfig
-	}
-
-	for _, jc := range c.Receivers {
-		if jc.Name == "" {
-			return fmt.Errorf("missing name for receiver %s", jc)
+	for _, rc := range c.Receivers {
+		if rc.Name == "" {
+			return fmt.Errorf("missing name for receiver %+v", rc)
 		}
 
 		// Check API access fields
-		if jc.APIURL == "" {
+		if rc.APIURL == "" {
 			if c.Defaults.APIURL == "" {
-				return fmt.Errorf("missing api_url in receiver %s", jc.Name)
+				return fmt.Errorf("missing api_url in receiver %q", rc.Name)
 			}
-			jc.APIURL = c.Defaults.APIURL
+			rc.APIURL = c.Defaults.APIURL
 		}
-		if jc.User == "" {
+		if _, err := url.Parse(rc.APIURL); err != nil {
+			return fmt.Errorf("invalid api_url %q in receiver %q: %s", rc.APIURL, rc.Name, err)
+		}
+		if rc.User == "" {
 			if c.Defaults.User == "" {
-				return fmt.Errorf("missing user in receiver %s", jc.Name)
+				return fmt.Errorf("missing user in receiver %q", rc.Name)
 			}
-			jc.User = c.Defaults.User
+			rc.User = c.Defaults.User
 		}
-		if jc.Password == "" {
+		if rc.Password == "" {
 			if c.Defaults.Password == "" {
-				return fmt.Errorf("missing password in receiver %s", jc.Name)
+				return fmt.Errorf("missing password in receiver %q", rc.Name)
 			}
-			jc.Password = c.Defaults.Password
+			rc.Password = c.Defaults.Password
 		}
 
 		// Check required issue fields
-		if jc.Project == "" {
+		if rc.Project == "" {
 			if c.Defaults.Project == "" {
-				return fmt.Errorf("missing project in receiver %s", jc.Name)
+				return fmt.Errorf("missing project in receiver %q", rc.Name)
 			}
-			jc.Project = c.Defaults.Project
+			rc.Project = c.Defaults.Project
 		}
-		if jc.IssueType == "" {
+		if rc.IssueType == "" {
 			if c.Defaults.IssueType == "" {
-				return fmt.Errorf("missing issue_type in receiver %s", jc.Name)
+				return fmt.Errorf("missing issue_type in receiver %q", rc.Name)
 			}
-			jc.IssueType = c.Defaults.IssueType
+			rc.IssueType = c.Defaults.IssueType
 		}
-		if jc.Summary == "" {
+		if rc.Summary == "" {
 			if c.Defaults.Summary == "" {
-				return fmt.Errorf("missing summary in receiver %s", jc.Name)
+				return fmt.Errorf("missing summary in receiver %q", rc.Name)
 			}
-			jc.Summary = c.Defaults.Summary
+			rc.Summary = c.Defaults.Summary
 		}
-		if jc.ReopenState == "" {
+		if rc.ReopenState == "" {
 			if c.Defaults.ReopenState == "" {
-				return fmt.Errorf("missing reopen_state in receiver %s", jc.Name)
+				return fmt.Errorf("missing reopen_state in receiver %q", rc.Name)
 			}
-			jc.ReopenState = c.Defaults.ReopenState
+			rc.ReopenState = c.Defaults.ReopenState
 		}
 
 		// Populate optional issue fields, where necessary
-		if jc.Priority == "" && c.Defaults.Priority != "" {
-			jc.Priority = c.Defaults.Priority
+		if rc.Priority == "" && c.Defaults.Priority != "" {
+			rc.Priority = c.Defaults.Priority
 		}
-		if jc.Description == "" && c.Defaults.Description != "" {
-			jc.Description = c.Defaults.Description
+		if rc.Description == "" && c.Defaults.Description != "" {
+			rc.Description = c.Defaults.Description
 		}
-		if jc.WontFixResolution == "" && c.Defaults.WontFixResolution != "" {
-			jc.WontFixResolution = c.Defaults.WontFixResolution
+		if rc.WontFixResolution == "" && c.Defaults.WontFixResolution != "" {
+			rc.WontFixResolution = c.Defaults.WontFixResolution
 		}
 		if len(c.Defaults.Fields) > 0 {
 			for key, value := range c.Defaults.Fields {
-				if _, ok := jc.Fields[key]; !ok {
-					jc.Fields[key] = value
+				if _, ok := rc.Fields[key]; !ok {
+					rc.Fields[key] = value
 				}
 			}
 		}
@@ -225,10 +216,10 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // ReceiverByName loops the receiver list and returns the first instance with that name
-func (c *Config) ReceiverByName(name string) *JiraConfig {
-	for _, r := range c.Receivers {
-		if r.Name == name {
-			return r
+func (c *Config) ReceiverByName(name string) *ReceiverConfig {
+	for _, rc := range c.Receivers {
+		if rc.Name == name {
+			return rc
 		}
 	}
 	return nil
