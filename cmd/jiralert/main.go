@@ -19,7 +19,7 @@ const (
 )
 
 var (
-	listenAddress = flag.String("listen-address", ":2197", "The address to listen on for HTTP requests.")
+	listenAddress = flag.String("listen-address", ":8097", "The address to listen on for HTTP requests.")
 	configFile    = flag.String("config", "config/jiralert.yml", "The JIRAlert configuration file")
 
 	Version = "<local build>"
