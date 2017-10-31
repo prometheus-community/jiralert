@@ -83,4 +83,4 @@ receivers:
 ## License
 
 JIRAlert is licensed under the [MIT License](https://github.com/alin-sinpalean/jiralert/blob/master/LICENSE).
-Copyright (c) 2016, Alin Sinpalean
+Copyright (c) 2017, Alin Sinpalean
