@@ -1,5 +1,5 @@
-.project
-bin
+/.project
+/release
 /jiralert
 /jiralert*.tar.gz
 
