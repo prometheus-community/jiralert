@@ -36,7 +36,7 @@ Usage of jiralert:
   -config string
       The JIRAlert configuration file (default "config/jiralert.yml")
   -listen-address string
-      The address to listen on for HTTP requests. (default ":2197")
+      The address to listen on for HTTP requests. (default ":9097")
   [...]
 ```
 
@@ -51,13 +51,13 @@ To quickly test if JIRAlert is working you can run:
 ```bash
 $ curl -H "Content-type: application/json" -X POST \
   -d '{"receiver": "jira-ab", "status": "firing", "alerts": [{"status": "firing", "labels": {"alertname": "TestAlert", "key": "value"} }], "groupLabels": {"alertname": "TestAlert"}}' \
-  http://localhost:2197/alert
+  http://localhost:9097/alert
 ```
 
 ## Configuration
 
-The configuration file is essentially a list of receivers matching 1-1 all Alertmanager receivers pointing to JIRAlert
-plus defaults (also as a receiver) and a pointer to the template file.
+The configuration file is essentially a list of receivers matching 1-to-1 all Alertmanager receivers using JIRAlert;
+plus defaults (in the form of a partially defined receiver); and a pointer to the template file.
 
 Each receiver must have a unique name (matching the Alertmanager receiver name), JIRA API access fields (URL, username
 and password), a handful of required issue fields (such as the JIRA project and issue summary), some optional issue
@@ -75,7 +75,7 @@ webhook receiver to your Alertmanager configuration.
 receivers:
 - name: 'jira-ab'
   webhook_configs:
-  - url: 'http://localhost:2197/alert'
+  - url: 'http://localhost:9097/alert'
     # JIRAlert ignores resolved alerts, avoid unnecessary noise
     send_resolved: false
 ```
