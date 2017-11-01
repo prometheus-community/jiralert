@@ -1,18 +1,11 @@
-# JIRAlert
-JIRA integration for [Prometheus Alertmanager](https://github.com/prometheus/alertmanager).
+# JIRAlert [![Build Status](https://travis-ci.org/alin-sinpalean/jiralert.svg)](https://travis-ci.org/alin-sinpalean/jiralert) [![Go Report Card](https://goreportcard.com/badge/github.com/alin-sinpalean/jiralert)](https://goreportcard.com/report/github.com/alin-sinpalean/jiralert) [![GoDoc](https://godoc.org/github.com/alin-sinpalean/jiralert?status.svg)](https://godoc.org/github.com/alin-sinpalean/jiralert)
+[Prometheus Alertmanager](https://github.com/prometheus/alertmanager) webhook receiver for [JIRA](https://www.atlassian.com/software/jira).
 
 ## Overview
 
-JIRAlert implements Alertmanager's webhook HTTP API and creates highly configurable JIRA issues when notified. One issue
-is created per distinct group key — as defined by the [`group_by`](https://prometheus.io/docs/alerting/configuration/#<route>)
-parameter of Alertmanager's `route` configuration section — but not closed when the alert is resolved. The expectation
-is that a human will look at the issue, take any necessary action, then close it.  If no human interaction is necessary
-then it should probably not alert in the first place.
+JIRAlert implements Alertmanager's webhook HTTP API and connects to one or more JIRA instances to create highly configurable JIRA issues. One issue is created per distinct group key — as defined by the [`group_by`](https://prometheus.io/docs/alerting/configuration/#<route>) parameter of Alertmanager's `route` configuration section — but not closed when the alert is resolved. The expectation is that a human will look at the issue, take any necessary action, then close it.  If no human interaction is necessary then it should probably not alert in the first place.
 
-If a corresponding JIRA issue already exists but is resolved, it is reopened. A JIRA transition must exist between the
-resolved state and the reopened state — as defined by `reopen_state` — or reopening will fail. Optionally a "won't
-fix" resolution — defined by `wont_fix_resolution` — may be defined: a JIRA issue with this resolution will not be
-reopened by JIRAlert.
+If a corresponding JIRA issue already exists but is resolved, it is reopened. A JIRA transition must exist between the resolved state and the reopened state — as defined by `reopen_state` — or reopening will fail. Optionally a "won't fix" resolution — defined by `wont_fix_resolution` — may be defined: a JIRA issue with this resolution will not be reopened by JIRAlert.
 
 ## Usage
 
@@ -42,9 +35,7 @@ Usage of jiralert:
 
 ## Testing
 
-JIRAlert expects a JSON object from Alertmanager. The format of this JSON is described in the [Alertmanager
-documentation](https://prometheus.io/docs/alerting/configuration/#<webhook_config>) or, alternatively,
-in the [Alertmanager GoDoc](https://godoc.org/github.com/prometheus/alertmanager/template#Data).
+JIRAlert expects a JSON object from Alertmanager. The format of this JSON is described in the [Alertmanager documentation](https://prometheus.io/docs/alerting/configuration/#<webhook_config>) or, alternatively, in the [Alertmanager GoDoc](https://godoc.org/github.com/prometheus/alertmanager/template#Data).
 
 To quickly test if JIRAlert is working you can run:
 
@@ -56,20 +47,13 @@ $ curl -H "Content-type: application/json" -X POST \
 
 ## Configuration
 
-The configuration file is essentially a list of receivers matching 1-to-1 all Alertmanager receivers using JIRAlert;
-plus defaults (in the form of a partially defined receiver); and a pointer to the template file.
+The configuration file is essentially a list of receivers matching 1-to-1 all Alertmanager receivers using JIRAlert; plus defaults (in the form of a partially defined receiver); and a pointer to the template file.
 
-Each receiver must have a unique name (matching the Alertmanager receiver name), JIRA API access fields (URL, username
-and password), a handful of required issue fields (such as the JIRA project and issue summary), some optional issue
-fields (e.g. priority) and a `fields` map for other (standard or custom) JIRA fields. Most of these may use [Go
-templating](https://golang.org/pkg/text/template/) to generate the actual field values based on the contents of the
-Alertmanager notification. The exact same data structures and functions as those defined in the [Alertmanager template
-reference](https://prometheus.io/docs/alerting/notifications/) are available in JIRAlert.
+Each receiver must have a unique name (matching the Alertmanager receiver name), JIRA API access fields (URL, username and password), a handful of required issue fields (such as the JIRA project and issue summary), some optional issue fields (e.g. priority) and a `fields` map for other (standard or custom) JIRA fields. Most of these may use [Go templating](https://golang.org/pkg/text/template/) to generate the actual field values based on the contents of the Alertmanager notification. The exact same data structures and functions as those defined in the [Alertmanager template reference](https://prometheus.io/docs/alerting/notifications/) are available in JIRAlert.
 
 ## Alertmanager configuration
 
-To enable Alertmanager to talk to JIRAlert you need to configure a webhook in Alertmanager. You can do that by adding a
-webhook receiver to your Alertmanager configuration. 
+To enable Alertmanager to talk to JIRAlert you need to configure a webhook in Alertmanager. You can do that by adding a webhook receiver to your Alertmanager configuration. 
 
 ```yaml
 receivers:
@@ -83,4 +67,5 @@ receivers:
 ## License
 
 JIRAlert is licensed under the [MIT License](https://github.com/alin-sinpalean/jiralert/blob/master/LICENSE).
+
 Copyright (c) 2017, Alin Sinpalean
