@@ -28,16 +28,14 @@ build:
 	@echo ">> building binaries"
 	@GOOS=linux GOARCH=amd64 $(GO) build -ldflags "-X main.Version=$(VERSION)" github.com/alin-sinpalean/jiralert/cmd/jiralert
 
-release:
-	@echo ">> packaging release $(RELEASE)"
+tarball:
+	@echo ">> packaging release $(VERSION)"
 	@rm -rf "$(RELEASE_DIR)/*"
 	@mkdir -p "$(RELEASE_DIR)"
 	@cp jiralert README.md LICENSE "$(RELEASE_DIR)"
 	@mkdir -p "$(RELEASE_DIR)/config"
 	@cp config/* "$(RELEASE_DIR)/config"
-	#@pushd release >/dev/null
 	@tar -zcvf "$(RELEASE).tar.gz" -C "$(RELEASE_DIR)"/.. "$(RELEASE)"
-	#@popd >/dev/null
 	@rm -rf "$(RELEASE_DIR)"
 
 get_staticcheck:
