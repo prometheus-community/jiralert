@@ -22,7 +22,7 @@ var (
 	listenAddress = flag.String("listen-address", ":9097", "The address to listen on for HTTP requests.")
 	configFile    = flag.String("config", "config/jiralert.yml", "The JIRAlert configuration file")
 
-	// Build version, set by make to latest git tag via `-ldflags "-X main.Version=$(VERSION)"`.
+	// Version is the build version, set by make to latest git tag/hash via `-ldflags "-X main.Version=$(VERSION)"`.
 	Version = "<local build>"
 )
 
