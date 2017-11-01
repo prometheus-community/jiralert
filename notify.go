@@ -13,12 +13,14 @@ import (
 	"github.com/trivago/tgo/tcontainer"
 )
 
+// Receiver wraps a JIRA client corresponding to a specific Alertmanager receiver, with its configuration and templates.
 type Receiver struct {
 	conf   *ReceiverConfig
 	tmpl   *Template
 	client *jira.Client
 }
 
+// NewReceiver creates a Receiver using the provided configuration and template.
 func NewReceiver(c *ReceiverConfig, t *Template) (*Receiver, error) {
 	client, err := jira.NewClient(http.DefaultClient, c.APIURL)
 	if err != nil {

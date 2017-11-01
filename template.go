@@ -9,6 +9,8 @@ import (
 	log "github.com/golang/glog"
 )
 
+// Template wraps a text template and error, to make it easier to execute multiple templates and only check for errors
+// once at the end (assuming one is only interested in the first error, which is usually the case).
 type Template struct {
 	tmpl *template.Template
 	err  error
@@ -29,6 +31,7 @@ var funcs = template.FuncMap{
 	},
 }
 
+// LoadTemplate reads and parses all templates defined in the given file and constructs a jiralert.Template.
 func LoadTemplate(path string) (*Template, error) {
 	log.V(1).Infof("Loading templates from %q", path)
 	tmpl, err := template.New("").Option("missingkey=zero").Funcs(funcs).ParseFiles(path)
@@ -38,6 +41,9 @@ func LoadTemplate(path string) (*Template, error) {
 	return &Template{tmpl: tmpl}, nil
 }
 
+// Execute parses the provided text (or returns it unchanged if not a Go template), associates it with the templates
+// defined in t.tmpl (so they may be referenced and used) and applies the resulting template to the specified data
+// object, returning the output as a string.
 func (t *Template) Execute(text string, data interface{}) string {
 	log.V(2).Infof("Executing template %q...", text)
 	if !strings.Contains(text, "{{") {

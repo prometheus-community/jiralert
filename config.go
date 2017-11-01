@@ -70,6 +70,8 @@ func resolveFilepaths(baseDir string, cfg *Config) {
 	cfg.Template = join(cfg.Template)
 }
 
+// ReceiverConfig is the configuration for one receiver. It has a unique name and includes API access fields (URL, user
+// and password) and issue fields (required -- e.g. project, issue type -- and optional -- e.g. priority).
 type ReceiverConfig struct {
 	Name string `yaml:"name" json:"name"`
 
