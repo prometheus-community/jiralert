@@ -11,7 +11,7 @@ import (
 	"github.com/alin-sinpalean/jiralert"
 	"github.com/alin-sinpalean/jiralert/alertmanager"
 	log "github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
@@ -26,6 +26,11 @@ var (
 )
 
 func main() {
+	// Override -alsologtostderr default value.
+	if alsoLogToStderr := flag.Lookup("alsologtostderr"); alsoLogToStderr != nil {
+		alsoLogToStderr.DefValue = "true"
+		alsoLogToStderr.Value.Set("true")
+	}
 	flag.Parse()
 
 	log.Infof("Starting JIRAlert version %s", Version)
@@ -85,7 +90,7 @@ func main() {
 		requestTotal.WithLabelValues(conf.Name, "200").Inc()
 	})
 
-	http.Handle("/metrics", prometheus.Handler())
+	http.Handle("/metrics", promhttp.Handler())
 
 	if os.Getenv("PORT") != "" {
 		*listenAddress = ":" + os.Getenv("PORT")
