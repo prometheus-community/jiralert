@@ -64,6 +64,20 @@ receivers:
     send_resolved: false
 ```
 
+## Profiling
+
+JIRAlert imports [`net/http/pprof`](https://golang.org/pkg/net/http/pprof/) to expose runtime profiling data on the `/debug/pprof` endpoint. For example, to use the pprof tool to look at a 30-second CPU profile:
+
+```bash
+go tool pprof http://localhost:9097/debug/pprof/profile
+```
+
+To enable mutex and block profiling (i.e. `/debug/pprof/mutex` and `/debug/pprof/block`) run JIRAlert with the `DEBUG` environment variable set:
+
+```bash
+env DEBUG=1 ./jiralert
+```
+
 ## License
 
 JIRAlert is licensed under the [MIT License](https://github.com/alin-sinpalean/jiralert/blob/master/LICENSE).

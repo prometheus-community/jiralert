@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"runtime"
 	"strconv"
 
 	"github.com/alin-sinpalean/jiralert"
 	"github.com/alin-sinpalean/jiralert/alertmanager"
 	log "github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	_ "net/http/pprof"
 )
 
 const (
@@ -27,6 +29,11 @@ var (
 )
 
 func main() {
+	if os.Getenv("DEBUG") != "" {
+		runtime.SetBlockProfileRate(1)
+		runtime.SetMutexProfileFraction(1)
+	}
+
 	// Override -alsologtostderr default value.
 	if alsoLogToStderr := flag.Lookup("alsologtostderr"); alsoLogToStderr != nil {
 		alsoLogToStderr.DefValue = "true"
