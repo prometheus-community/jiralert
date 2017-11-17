@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/free/jiralert/alertmanager"
 	"github.com/andygrunwald/go-jira"
+	"github.com/free/jiralert/alertmanager"
 	log "github.com/golang/glog"
 	"github.com/trivago/tgo/tcontainer"
 )
