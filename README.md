@@ -1,4 +1,4 @@
-# JIRAlert [![Build Status](https://travis-ci.org/alin-sinpalean/jiralert.svg)](https://travis-ci.org/alin-sinpalean/jiralert) [![Go Report Card](https://goreportcard.com/badge/github.com/alin-sinpalean/jiralert)](https://goreportcard.com/report/github.com/alin-sinpalean/jiralert) [![GoDoc](https://godoc.org/github.com/alin-sinpalean/jiralert?status.svg)](https://godoc.org/github.com/alin-sinpalean/jiralert)
+# JIRAlert [![Build Status](https://travis-ci.org/free/jiralert.svg)](https://travis-ci.org/free/jiralert) [![Go Report Card](https://goreportcard.com/badge/github.com/free/jiralert)](https://goreportcard.com/report/github.com/free/jiralert) [![GoDoc](https://godoc.org/github.com/free/jiralert?status.svg)](https://godoc.org/github.com/free/jiralert)
 [Prometheus Alertmanager](https://github.com/prometheus/alertmanager) webhook receiver for [JIRA](https://www.atlassian.com/software/jira).
 
 ## Overview
@@ -9,10 +9,10 @@ If a corresponding JIRA issue already exists but is resolved, it is reopened. A 
 
 ## Usage
 
-Get JIRAlert, either as a [packaged release](https://github.com/alin-sinpalean/jiralert/releases) or build it yourself:
+Get JIRAlert, either as a [packaged release](https://github.com/free/jiralert/releases) or build it yourself:
 
 ```
-$ go get github.com/alin-sinpalean/jiralert/cmd/jiralert
+$ go get github.com/free/jiralert/cmd/jiralert
 ```
 
 then run it from the command line:
@@ -80,6 +80,6 @@ env DEBUG=1 ./jiralert
 
 ## License
 
-JIRAlert is licensed under the [MIT License](https://github.com/alin-sinpalean/jiralert/blob/master/LICENSE).
+JIRAlert is licensed under the [MIT License](https://github.com/free/jiralert/blob/master/LICENSE).
 
 Copyright (c) 2017, Alin Sinpalean
