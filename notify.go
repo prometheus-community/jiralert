@@ -86,8 +86,10 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 	}
 
 	// Add Labels
-	for k, v := range data.GroupLabels {
-		issue.Fields.Labels = append(issue.Fields.Labels, fmt.Sprintf("%s=\"%s\"", k, v))
+	if r.conf.CopyPromLabels {
+		for k, v := range data.GroupLabels {
+			issue.Fields.Labels = append(issue.Fields.Labels, fmt.Sprintf("%s=\"%s\"", k, v))
+		}
 	}
 
 	for key, value := range r.conf.Fields {

@@ -91,6 +91,7 @@ type ReceiverConfig struct {
 	Description       string                 `yaml:"description" json:"description"`
 	WontFixResolution string                 `yaml:"wont_fix_resolution" json:"wont_fix_resolution"`
 	Fields            map[string]interface{} `yaml:"fields" json:"fields"`
+	CopyPromLabels    bool                   `yaml:"copy_prom_labels" json:"copy_prom_labels"`
 	Components        []string               `yaml:"components" json:"components"`
 
 	// Catches all undefined fields and must be empty after parsing.
