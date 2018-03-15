@@ -25,7 +25,7 @@ receivers:
     # JIRA project to create the issue in. Required.
     project: AB
     # Copy all Prometheus labels into separate JIRA labels.
-    copy_prom_labels: false
+    add_group_labels: false
 
   - name: 'jira-xy'
     project: XY

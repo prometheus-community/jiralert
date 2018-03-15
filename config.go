@@ -94,7 +94,7 @@ type ReceiverConfig struct {
 	Components        []string               `yaml:"components" json:"components"`
 
 	// Label copy settings
-	CopyPromLabels bool `yaml:"copy_prom_labels" json:"copy_prom_labels"`
+	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline" json:"-"`
