@@ -78,6 +78,20 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 	if r.conf.Priority != "" {
 		issue.Fields.Priority = &jira.Priority{Name: r.tmpl.Execute(r.conf.Priority, data)}
 	}
+
+	// Add Components
+	issue.Fields.Components = make([]*jira.Component, 0, len(r.conf.Components))
+	for _, component := range r.conf.Components {
+		issue.Fields.Components = append(issue.Fields.Components, &jira.Component{Name: component})
+	}
+
+	// Add Labels
+	if r.conf.AddGroupLabels {
+		for k, v := range data.GroupLabels {
+			issue.Fields.Labels = append(issue.Fields.Labels, fmt.Sprintf("%s=%q", k, v))
+		}
+	}
+
 	for key, value := range r.conf.Fields {
 		issue.Fields.Unknowns[key] = r.tmpl.Execute(fmt.Sprint(value), data)
 	}

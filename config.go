@@ -91,6 +91,10 @@ type ReceiverConfig struct {
 	Description       string                 `yaml:"description" json:"description"`
 	WontFixResolution string                 `yaml:"wont_fix_resolution" json:"wont_fix_resolution"`
 	Fields            map[string]interface{} `yaml:"fields" json:"fields"`
+	Components        []string               `yaml:"components" json:"components"`
+
+	// Label copy settings
+	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline" json:"-"`
