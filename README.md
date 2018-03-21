@@ -1,85 +1,47 @@
-# JIRAlert [![Build Status](https://travis-ci.org/free/jiralert.svg)](https://travis-ci.org/free/jiralert) [![Go Report Card](https://goreportcard.com/badge/github.com/free/jiralert)](https://goreportcard.com/report/github.com/free/jiralert) [![GoDoc](https://godoc.org/github.com/free/jiralert?status.svg)](https://godoc.org/github.com/free/jiralert)
-[Prometheus Alertmanager](https://github.com/prometheus/alertmanager) webhook receiver for [JIRA](https://www.atlassian.com/software/jira).
+# Tool to crate tickets in JIRA from Prometheus Alerts
 
-## Overview
+This tool is for creating ticket from Prometheus alerts. It uses golang binary to run as daemon and lesten to incoming webhooks from prometheus alertmanager and create appropriate request to JIRA for creating alert in neede project. This tool is modified from https://github.com/free/jiralert . Thanks to Alin Sinpalean for original project.
 
-JIRAlert implements Alertmanager's webhook HTTP API and connects to one or more JIRA instances to create highly configurable JIRA issues. One issue is created per distinct group key — as defined by the [`group_by`](https://prometheus.io/docs/alerting/configuration/#<route>) parameter of Alertmanager's `route` configuration section — but not closed when the alert is resolved. The expectation is that a human will look at the issue, take any necessary action, then close it.  If no human interaction is necessary then it should probably not alert in the first place.
 
-If a corresponding JIRA issue already exists but is resolved, it is reopened. A JIRA transition must exist between the resolved state and the reopened state — as defined by `reopen_state` — or reopening will fail. Optionally a "won't fix" resolution — defined by `wont_fix_resolution` — may be defined: a JIRA issue with this resolution will not be reopened by JIRAlert.
+### Values
 
-## Usage
+- `JIRA_USER` - user to conenct and create tickets in JIRA, nust have prevelige to list and create tickets 
+- `JIRA_PASS` - user pass to connect to JIRA
 
-Get JIRAlert, either as a [packaged release](https://github.com/free/jiralert/releases) or build it yourself:
 
+### Tool Run Keys
+
+- `alsologtostderr` - log to standard error as well as files (default true)
+- `config` - string The JIRAlert configuration file (default `config/jiralert.yml`)
+- `listen-address` - string The address to listen on for HTTP requests. (default `:9097`)
+- `log_backtrace_at` value - when logging hits line file:N, emit a stack trace
+- `log_dir` - string If non-empty, write log files in this directory
+- `logtostderr` - log to standard error instead of files
+- `stderrthreshold` - value logs at or above this threshold go to stderr
+- `v` - value log level for V logs
+- `vmodule` - value comma-separated list of pattern=N settings for file-filtered logging
+
+
+### How its working
+
+1) Prometheus from alert rules rigger the alert
+2) Alertmanager catch alert from Prometheus and send to jira-alerter. IMPORTANT - alertmanager reciever name must be the same as jira-alerter reciever name
+3) jira-alerter catch alert from Alertmanager and send to JIRA.
+4) jira-alerter create `alert_hash` using sha1 from summary field in JIRA (can be modified in jiralert.tmpl) and save this hash in JIRA ticket description.
+5) jira-alerter check if alert with same `alert_hash` already exist. If exist do nothing. If not exist create new issue on JIRA. It is possible to reopen ticket if its resolved, to do that you need to define `reopen_state`  in config file `config/jiralert.yml` and this reopen state need to exist in JIRA.
+
+
+### How to use
+
+run container like this 
 ```
-$ go get github.com/free/jiralert/cmd/jiralert
+docker run --env JIRA_PASS=test-123 --env JIRA_USER=test-user --name jira-alerter --network host -p 9097:9097 --rm -v "/tmp/config:/config" jira-alerter /jira-alerter -v 1
+``` 
+then it will listen on port 9097 and recieve any request
+
+you can test by tunning this request 
 ```
-
-then run it from the command line:
-
-```
-$ jiralert
-```
-
-Use the `-help` flag to get help information.
-
-```
-$ jiralert -help
-Usage of jiralert:
-  -config string
-      The JIRAlert configuration file (default "config/jiralert.yml")
-  -listen-address string
-      The address to listen on for HTTP requests. (default ":9097")
-  [...]
-```
-
-## Testing
-
-JIRAlert expects a JSON object from Alertmanager. The format of this JSON is described in the [Alertmanager documentation](https://prometheus.io/docs/alerting/configuration/#<webhook_config>) or, alternatively, in the [Alertmanager GoDoc](https://godoc.org/github.com/prometheus/alertmanager/template#Data).
-
-To quickly test if JIRAlert is working you can run:
-
-```bash
-$ curl -H "Content-type: application/json" -X POST \
-  -d '{"receiver": "jira-ab", "status": "firing", "alerts": [{"status": "firing", "labels": {"alertname": "TestAlert", "key": "value"} }], "groupLabels": {"alertname": "TestAlert"}}' \
-  http://localhost:9097/alert
-```
-
-## Configuration
-
-The configuration file is essentially a list of receivers matching 1-to-1 all Alertmanager receivers using JIRAlert; plus defaults (in the form of a partially defined receiver); and a pointer to the template file.
-
-Each receiver must have a unique name (matching the Alertmanager receiver name), JIRA API access fields (URL, username and password), a handful of required issue fields (such as the JIRA project and issue summary), some optional issue fields (e.g. priority) and a `fields` map for other (standard or custom) JIRA fields. Most of these may use [Go templating](https://golang.org/pkg/text/template/) to generate the actual field values based on the contents of the Alertmanager notification. The exact same data structures and functions as those defined in the [Alertmanager template reference](https://prometheus.io/docs/alerting/notifications/) are available in JIRAlert.
-
-## Alertmanager configuration
-
-To enable Alertmanager to talk to JIRAlert you need to configure a webhook in Alertmanager. You can do that by adding a webhook receiver to your Alertmanager configuration. 
-
-```yaml
-receivers:
-- name: 'jira-ab'
-  webhook_configs:
-  - url: 'http://localhost:9097/alert'
-    # JIRAlert ignores resolved alerts, avoid unnecessary noise
-    send_resolved: false
+curl -L -v -H "Content-type: application/json" -X POST -d '{"receiver": "jira-des", "status": "firing", "alerts": [{"status": "firing", "labels": {"alertname": "TestAlert", "key": "value2","key4": "value4"} }], "groupLabels": {"alertname": "TestAlert20", "ggg": "gg"}}' http://localhost:9097/alert
 ```
 
-## Profiling
-
-JIRAlert imports [`net/http/pprof`](https://golang.org/pkg/net/http/pprof/) to expose runtime profiling data on the `/debug/pprof` endpoint. For example, to use the pprof tool to look at a 30-second CPU profile:
-
-```bash
-go tool pprof http://localhost:9097/debug/pprof/profile
-```
-
-To enable mutex and block profiling (i.e. `/debug/pprof/mutex` and `/debug/pprof/block`) run JIRAlert with the `DEBUG` environment variable set:
-
-```bash
-env DEBUG=1 ./jiralert
-```
-
-## License
-
-JIRAlert is licensed under the [MIT License](https://github.com/free/jiralert/blob/master/LICENSE).
-
-Copyright (c) 2017, Alin Sinpalean
+all configs are commented so you can see what options mean.
