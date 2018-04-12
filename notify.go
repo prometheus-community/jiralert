@@ -127,7 +127,7 @@ func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error)
 	log.V(1).Infof("search: query=%v options=%+v", query, options)
 	issues, resp, err := r.client.Issue.Search(query, options)
 	if err != nil {
-		retry, err := handleJiraError(resp, err)
+		retry, err := handleJiraError("Issue.Search", resp, err)
 		return nil, retry, err
 	}
 	if len(issues) > 0 {
@@ -145,14 +145,14 @@ func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error)
 func (r *Receiver) reopen(issueKey string) (bool, error) {
 	transitions, resp, err := r.client.Issue.GetTransitions(issueKey)
 	if err != nil {
-		return handleJiraError(resp, err)
+		return handleJiraError("Issue.GetTransitions", resp, err)
 	}
 	for _, t := range transitions {
 		if t.Name == r.conf.ReopenState {
 			log.V(1).Infof("reopen: issueKey=%v transitionID=%v", issueKey, t.ID)
 			resp, err = r.client.Issue.DoTransition(issueKey, t.ID)
 			if err != nil {
-				return handleJiraError(resp, err)
+				return handleJiraError("Issue.DoTransition", resp, err)
 			}
 			log.V(1).Infof("  done")
 			return false, nil
@@ -165,20 +165,25 @@ func (r *Receiver) create(issue *jira.Issue) (bool, error) {
 	log.V(1).Infof("create: issue=%v", *issue)
 	issue, resp, err := r.client.Issue.Create(issue)
 	if err != nil {
-		return handleJiraError(resp, err)
+		return handleJiraError("Issue.Create", resp, err)
 	}
 
 	log.V(1).Infof("  done: key=%s ID=%s", issue.Key, issue.ID)
 	return false, nil
 }
 
-func handleJiraError(resp *jira.Response, err error) (bool, error) {
-	log.V(1).Infof("handleJiraError: err=%s, req=%s", err, resp.Request.URL)
+func handleJiraError(api string, resp *jira.Response, err error) (bool, error) {
+	if resp == nil || resp.Request == nil {
+		log.V(1).Infof("handleJiraError: api=%s, err=%s", api, err)
+	} else {
+		log.V(1).Infof("handleJiraError: api=%s, url=%s, err=%s", api, resp.Request.URL, err)
+	}
+
 	if resp != nil && resp.StatusCode/100 != 2 {
 		retry := resp.StatusCode == 500 || resp.StatusCode == 503
 		body, _ := ioutil.ReadAll(resp.Body)
 		// go-jira error message is not particularly helpful, replace it
 		return retry, fmt.Errorf("JIRA request %s returned status %s, body %q", resp.Request.URL, resp.Status, string(body))
 	}
-	return false, err
+	return false, fmt.Errorf("JIRA request %s failed: %s", api, err)
 }
