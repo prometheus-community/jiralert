@@ -54,7 +54,8 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 			log.V(1).Infof("Issue %s for %s is unresolved, nothing to do", issue.Key, issueLabel)
 			return false, nil
 		}
-		if r.conf.WontFixResolution != "" && issue.Fields.Resolution.Name == r.conf.WontFixResolution {
+		if r.conf.WontFixResolution != "" && issue.Fields.Resolution != nil &&
+			issue.Fields.Resolution.Name == r.conf.WontFixResolution {
 			// Issue is resolved as "Won't Fix" or equivalent, log a message just in case.
 			log.Infof("Issue %s for %s is resolved as %q, not reopening", issue.Key, issueLabel, issue.Fields.Resolution.Name)
 			return false, nil
