@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/andygrunwald/go-jira"
@@ -93,7 +94,7 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 	}
 
 	for key, value := range r.conf.Fields {
-		issue.Fields.Unknowns[key] = r.tmpl.Execute(fmt.Sprint(value), data)
+		issue.Fields.Unknowns[key] = deepCopyWithTemplate(value, r.tmpl, data)
 	}
 	// check errors from r.tmpl.Execute()
 	if r.tmpl.err != nil {
@@ -104,6 +105,47 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 		log.Infof("Issue created: key=%s ID=%s", issue.Key, issue.ID)
 	}
 	return retry, err
+}
+
+// deepCopyWithTemplate returns a deep copy of a map/slice/array/string/int/bool or combination thereof, executing the
+// provided template (with the provided data) on all string keys or values. All maps are connverted to
+// map[string]interface{}, with all non-string keys discarded.
+func deepCopyWithTemplate(value interface{}, tmpl *Template, data interface{}) interface{} {
+	if value == nil {
+		return value
+	}
+
+	valueMeta := reflect.ValueOf(value)
+	switch valueMeta.Kind() {
+
+	case reflect.String:
+		return tmpl.Execute(value.(string), data)
+
+	case reflect.Array, reflect.Slice:
+		arrayLen := valueMeta.Len()
+		converted := make([]interface{}, arrayLen)
+		for i := 0; i < arrayLen; i++ {
+			converted[i] = deepCopyWithTemplate(valueMeta.Index(i).Interface(), tmpl, data)
+		}
+		return converted
+
+	case reflect.Map:
+		keys := valueMeta.MapKeys()
+		converted := make(map[string]interface{}, len(keys))
+
+		for _, keyMeta := range keys {
+			strKey, isString := keyMeta.Interface().(string)
+			if !isString {
+				continue
+			}
+			strKey = tmpl.Execute(strKey, data)
+			converted[strKey] = deepCopyWithTemplate(valueMeta.MapIndex(keyMeta).Interface(), tmpl, data)
+		}
+		return converted
+
+	default:
+		return value
+	}
 }
 
 // toIssueLabel returns the group labels in the form of an ALERT metric name, with all spaces removed.

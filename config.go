@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	log "github.com/golang/glog"
+	"github.com/trivago/tgo/tcontainer"
 	"gopkg.in/yaml.v2"
 )
 
@@ -106,6 +107,13 @@ func (rc *ReceiverConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 	if err := unmarshal((*plain)(rc)); err != nil {
 		return err
 	}
+	// Recursively convert any maps to map[string]interface{}, filtering out all non-string keys, so the json encoder
+	// doesn't blow up when marshaling JIRA requests.
+	fieldsWithStringKeys, err := tcontainer.ConvertToMarshalMap(rc.Fields, func(v string) string { return v })
+	if err != nil {
+		return err
+	}
+	rc.Fields = fieldsWithStringKeys
 	return checkOverflow(rc.XXX, "receiver")
 }
 
