@@ -81,9 +81,11 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 	}
 
 	// Add Components
-	issue.Fields.Components = make([]*jira.Component, 0, len(r.conf.Components))
-	for _, component := range r.conf.Components {
-		issue.Fields.Components = append(issue.Fields.Components, &jira.Component{Name: component})
+	if len(r.conf.Components) > 0 {
+		issue.Fields.Components = make([]*jira.Component, 0, len(r.conf.Components))
+		for _, component := range r.conf.Components {
+			issue.Fields.Components = append(issue.Fields.Components, &jira.Component{Name: component})
+		}
 	}
 
 	// Add Labels
