@@ -82,6 +82,7 @@ func main() {
 			r, err := jiralert.NewReceiver(conf, tmpl)
 			if err != nil {
 				errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data)
+				return
 			}
 			if retry, err := r.Notify(&data); err != nil {
 				var status int
