@@ -33,8 +33,15 @@ receivers:
     # JIRA components. Optional.
     components: [ 'Operations' ]
     # Standard or custom field values to set on created issue. Optional.
+    #
+    # See https://developer.atlassian.com/server/jira/platform/jira-rest-api-examples/#setting-custom-field-data-for-other-field-types for further examples.
     fields:
-      foo: bar
+      # TextField
+      customfield_10001: "Random text"
+      # SelectList
+      customfield_10002: { "value": "red" }
+      # MultiSelect
+      customfield_10003: [{"value": "red" }, {"value": "blue" }, {"value": "green" }]
 
 # File containing template definitions. Required.
 template: jiralert.tmpl
