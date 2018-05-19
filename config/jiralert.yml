@@ -7,7 +7,7 @@ defaults:
 
   # The type of JIRA issue to create. Required.
   issue_type: Bug
-  # Issue priority (optional)
+  # Issue priority. Optional.
   priority: Critical
   # Go template invocation for generating the summary. Required.
   summary: '{{ template "jira.summary" . }}'
@@ -24,11 +24,12 @@ receivers:
   - name: 'jira-ab'
     # JIRA project to create the issue in. Required.
     project: AB
-    # Copy all Prometheus labels into separate JIRA labels.
+    # Copy all Prometheus labels into separate JIRA labels. Optional (default: false).
     add_group_labels: false
 
   - name: 'jira-xy'
     project: XY
+    # Overrides default.
     issue_type: Task
     # JIRA components. Optional.
     components: [ 'Operations' ]
