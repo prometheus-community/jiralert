@@ -93,6 +93,7 @@ type ReceiverConfig struct {
 	WontFixResolution string                 `yaml:"wont_fix_resolution" json:"wont_fix_resolution"`
 	Fields            map[string]interface{} `yaml:"fields" json:"fields"`
 	Components        []string               `yaml:"components" json:"components"`
+	ReopenDuration    string                 `yaml:"reopen_duration" json:"reopen_duration"`
 
 	// Label copy settings
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`

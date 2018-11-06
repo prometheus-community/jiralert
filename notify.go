@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/andygrunwald/go-jira"
 	"github.com/free/jiralert/alertmanager"
@@ -60,8 +61,18 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 			log.Infof("Issue %s for %s is resolved as %q, not reopening", issue.Key, issueLabel, issue.Fields.Resolution.Name)
 			return false, nil
 		}
-		log.Infof("Issue %s for %s was resolved, reopening", issue.Key, issueLabel)
-		return r.reopen(issue.Key)
+
+		reopenDuration, err := time.ParseDuration(r.conf.ReopenDuration)
+		if err != nil {
+			log.Errorf("Unable to parse reopen duration: %v", err)
+			return false, err
+		}
+
+		resolutionTime := time.Time(issue.Fields.Resolutiondate)
+		if resolutionTime.Add(reopenDuration).After(time.Now()) {
+			log.Infof("Issue %s for %s was resolved on %s, reopening", issue.Key, issueLabel, resolutionTime.Format(time.UnixDate))
+			return r.reopen(issue.Key)
+		}
 	}
 
 	log.Infof("No issue matching %s found, creating new issue", issueLabel)
@@ -166,7 +177,7 @@ func toIssueLabel(groupLabels alertmanager.KV) string {
 func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error) {
 	query := fmt.Sprintf("project=\"%s\" and labels=%q order by key", project, issueLabel)
 	options := &jira.SearchOptions{
-		Fields:     []string{"summary", "status", "resolution"},
+		Fields:     []string{"summary", "status", "resolution", "resolutiondate"},
 		MaxResults: 50,
 	}
 	log.V(1).Infof("search: query=%v options=%+v", query, options)
@@ -178,10 +189,12 @@ func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error)
 	if len(issues) > 0 {
 		if len(issues) > 1 {
 			// Swallow it, but log an error.
-			log.Errorf("More than one issue matched %s, will only update first: %+v", query, issues)
+			log.Infof("More than one issue matched %s, will only update last issue: %+v", query, issues)
 		}
-		log.V(1).Infof("  found: %+v", issues[0])
-		return &issues[0], false, nil
+
+		lastIndex := len(issues) - 1
+		log.V(1).Infof("  found: %+v", issues[lastIndex])
+		return &issues[lastIndex], false, nil
 	}
 	log.V(1).Infof("  no results")
 	return nil, false, nil

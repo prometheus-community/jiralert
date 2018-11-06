@@ -2,6 +2,8 @@ package jira
 
 import (
 	"fmt"
+
+	"github.com/google/go-querystring/query"
 )
 
 // ProjectService handles projects for the JIRA instance / API.
@@ -21,6 +23,7 @@ type ProjectList []struct {
 	AvatarUrls      AvatarUrls      `json:"avatarUrls" structs:"avatarUrls"`
 	ProjectTypeKey  string          `json:"projectTypeKey" structs:"projectTypeKey"`
 	ProjectCategory ProjectCategory `json:"projectCategory,omitempty" structs:"projectsCategory,omitempty"`
+	IssueTypes      []IssueType     `json:"issueTypes,omitempty" structs:"issueTypes,omitempty"`
 }
 
 // ProjectCategory represents a single project category
@@ -53,18 +56,6 @@ type Project struct {
 	ProjectCategory ProjectCategory `json:"projectCategory,omitempty" structs:"projectCategory,omitempty"`
 }
 
-// Version represents a single release version of a project
-type Version struct {
-	Self            string `json:"self" structs:"self,omitempty"`
-	ID              string `json:"id" structs:"id,omitempty"`
-	Name            string `json:"name" structs:"name,omitempty"`
-	Archived        bool   `json:"archived" structs:"archived,omitempty"`
-	Released        bool   `json:"released" structs:"released,omitempty"`
-	ReleaseDate     string `json:"releaseDate" structs:"releaseDate,omitempty"`
-	UserReleaseDate string `json:"userReleaseDate" structs:"userReleaseDate,omitempty"`
-	ProjectID       int    `json:"projectId" structs:"projectId,omitempty"` // Unlike other IDs, this is returned as a number
-}
-
 // ProjectComponent represents a single component of a project
 type ProjectComponent struct {
 	Self                string `json:"self" structs:"self,omitempty"`
@@ -81,21 +72,48 @@ type ProjectComponent struct {
 	ProjectID           int    `json:"projectId" structs:"projectId,omitempty"`
 }
 
+// PermissionScheme represents the permission scheme for the project
+type PermissionScheme struct {
+	Expand      string `json:"expand" structs:"expand,omitempty"`
+	Self        string `json:"self" structs:"self,omitempty"`
+	ID          int    `json:"id" structs:"id,omitempty"`
+	Name        string `json:"name" structs:"name,omitempty"`
+	Description string `json:"description" structs:"description,omitempty"`
+}
+
 // GetList gets all projects form JIRA
 //
 // JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/project-getAllProjects
 func (s *ProjectService) GetList() (*ProjectList, *Response, error) {
+	return s.ListWithOptions(&GetQueryOptions{})
+}
+
+// ListWithOptions gets all projects form JIRA with optional query params, like &GetQueryOptions{Expand: "issueTypes"} to get
+// a list of all projects and their supported issuetypes
+//
+// JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/project-getAllProjects
+func (s *ProjectService) ListWithOptions(options *GetQueryOptions) (*ProjectList, *Response, error) {
 	apiEndpoint := "rest/api/2/project"
 	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	if options != nil {
+		q, err := query.Values(options)
+		if err != nil {
+			return nil, nil, err
+		}
+		req.URL.RawQuery = q.Encode()
+	}
+
 	projectList := new(ProjectList)
 	resp, err := s.client.Do(req, projectList)
 	if err != nil {
-		return nil, resp, err
+		jerr := NewJiraError(resp, err)
+		return nil, resp, jerr
 	}
+
 	return projectList, resp, nil
 }
 
@@ -114,7 +132,31 @@ func (s *ProjectService) Get(projectID string) (*Project, *Response, error) {
 	project := new(Project)
 	resp, err := s.client.Do(req, project)
 	if err != nil {
-		return nil, resp, err
+		jerr := NewJiraError(resp, err)
+		return nil, resp, jerr
 	}
+
 	return project, resp, nil
+}
+
+// GetPermissionScheme returns a full representation of the permission scheme for the project
+// JIRA will attempt to identify the project by the projectIdOrKey path parameter.
+// This can be an project id, or an project key.
+//
+// JIRA API docs: https://docs.atlassian.com/jira/REST/latest/#api/2/project-getProject
+func (s *ProjectService) GetPermissionScheme(projectID string) (*PermissionScheme, *Response, error) {
+	apiEndpoint := fmt.Sprintf("/rest/api/2/project/%s/permissionscheme", projectID)
+	req, err := s.client.NewRequest("GET", apiEndpoint, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ps := new(PermissionScheme)
+	resp, err := s.client.Do(req, ps)
+	if err != nil {
+		jerr := NewJiraError(resp, err)
+		return nil, resp, jerr
+	}
+
+	return ps, resp, nil
 }
