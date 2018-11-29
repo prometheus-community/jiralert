@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"reflect"
 	"strings"
 	"time"
@@ -24,11 +23,14 @@ type Receiver struct {
 
 // NewReceiver creates a Receiver using the provided configuration and template.
 func NewReceiver(c *ReceiverConfig, t *Template) (*Receiver, error) {
-	client, err := jira.NewClient(http.DefaultClient, c.APIURL)
+	tp := jira.BasicAuthTransport{
+		Username: c.User,
+		Password: string(c.Password),
+	}
+	client, err := jira.NewClient(tp.Client(), c.APIURL)
 	if err != nil {
 		return nil, err
 	}
-	client.Authentication.SetBasicAuth(c.User, string(c.Password))
 
 	return &Receiver{conf: c, tmpl: t, client: client}, nil
 }
@@ -62,14 +64,8 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 			return false, nil
 		}
 
-		reopenDuration, err := time.ParseDuration(r.conf.ReopenDuration)
-		if err != nil {
-			log.Errorf("Unable to parse reopen duration: %v", err)
-			return false, err
-		}
-
 		resolutionTime := time.Time(issue.Fields.Resolutiondate)
-		if resolutionTime.Add(reopenDuration).After(time.Now()) {
+		if resolutionTime.Add(time.Duration(*r.conf.ReopenDuration)).After(time.Now()) {
 			log.Infof("Issue %s for %s was resolved on %s, reopening", issue.Key, issueLabel, resolutionTime.Format(time.UnixDate))
 			return r.reopen(issue.Key)
 		}
@@ -96,7 +92,7 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 	if len(r.conf.Components) > 0 {
 		issue.Fields.Components = make([]*jira.Component, 0, len(r.conf.Components))
 		for _, component := range r.conf.Components {
-			issue.Fields.Components = append(issue.Fields.Components, &jira.Component{Name: component})
+			issue.Fields.Components = append(issue.Fields.Components, &jira.Component{Name: r.tmpl.Execute(component, data)})
 		}
 	}
 
@@ -178,7 +174,7 @@ func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error)
 	query := fmt.Sprintf("project=\"%s\" and labels=%q order by key", project, issueLabel)
 	options := &jira.SearchOptions{
 		Fields:     []string{"summary", "status", "resolution", "resolutiondate"},
-		MaxResults: 50,
+		MaxResults: 2,
 	}
 	log.V(1).Infof("search: query=%v options=%+v", query, options)
 	issues, resp, err := r.client.Issue.Search(query, options)
@@ -188,13 +184,12 @@ func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error)
 	}
 	if len(issues) > 0 {
 		if len(issues) > 1 {
-			// Swallow it, but log an error.
+			// Swallow it, but log a message.
 			log.Infof("More than one issue matched %s, will only update last issue: %+v", query, issues)
 		}
 
-		lastIndex := len(issues) - 1
-		log.V(1).Infof("  found: %+v", issues[lastIndex])
-		return &issues[lastIndex], false, nil
+		log.V(1).Infof("  found: %+v", issues[0])
+		return &issues[0], false, nil
 	}
 	log.V(1).Infof("  no results")
 	return nil, false, nil
@@ -221,10 +216,11 @@ func (r *Receiver) reopen(issueKey string) (bool, error) {
 
 func (r *Receiver) create(issue *jira.Issue) (bool, error) {
 	log.V(1).Infof("create: issue=%v", *issue)
-	issue, resp, err := r.client.Issue.Create(issue)
+	newIssue, resp, err := r.client.Issue.Create(issue)
 	if err != nil {
 		return handleJiraError("Issue.Create", resp, err)
 	}
+	*issue = *newIssue
 
 	log.V(1).Infof("  done: key=%s ID=%s", issue.Key, issue.ID)
 	return false, nil
