@@ -66,7 +66,7 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 
 		resolutionTime := time.Time(issue.Fields.Resolutiondate)
 		if resolutionTime.Add(time.Duration(*r.conf.ReopenDuration)).After(time.Now()) {
-			log.Infof("Issue %s for %s was resolved on %s, reopening", issue.Key, issueLabel, resolutionTime.Format(time.UnixDate))
+			log.Infof("Issue %s for %s was resolved on %s, reopening", issue.Key, issueLabel, resolutionTime.Format(time.RFC3339))
 			return r.reopen(issue.Key)
 		}
 	}
@@ -171,7 +171,7 @@ func toIssueLabel(groupLabels alertmanager.KV) string {
 }
 
 func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error) {
-	query := fmt.Sprintf("project=\"%s\" and labels=%q order by key", project, issueLabel)
+	query := fmt.Sprintf("project=\"%s\" and labels=%q order by key desc", project, issueLabel)
 	options := &jira.SearchOptions{
 		Fields:     []string{"summary", "status", "resolution", "resolutiondate"},
 		MaxResults: 2,
