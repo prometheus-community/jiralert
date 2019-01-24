@@ -171,7 +171,7 @@ func toIssueLabel(groupLabels alertmanager.KV) string {
 }
 
 func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error) {
-	query := fmt.Sprintf("project=\"%s\" and labels=%q order by key desc", project, issueLabel)
+	query := fmt.Sprintf("project=\"%s\" and labels=%q order by resolutiondate desc", project, issueLabel)
 	options := &jira.SearchOptions{
 		Fields:     []string{"summary", "status", "resolution", "resolutiondate"},
 		MaxResults: 2,
