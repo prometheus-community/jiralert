@@ -17,6 +17,9 @@ defaults:
   reopen_state: "To Do"
   # Do not reopen issues with this resolution. Optional.
   wont_fix_resolution: "Won't Fix"
+  # Amount of time after being closed that an issue should be reopened, after which, a new issue is created.
+  # Optional (default: always reopen)
+  reopen_duration: 0h
 
 # Receiver definitions. At least one must be defined.
 receivers:
