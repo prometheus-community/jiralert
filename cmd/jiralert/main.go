@@ -67,7 +67,7 @@ func main() {
 
 		conf := config.ReceiverByName(data.Receiver)
 		if conf == nil {
-			errorHandler(w, http.StatusNotFound, fmt.Errorf("Receiver missing: %s", data.Receiver), unknownReceiver, &data)
+			errorHandler(w, http.StatusNotFound, fmt.Errorf("receiver missing: %s", data.Receiver), unknownReceiver, &data)
 			return
 		}
 		log.V(1).Infof("Matched receiver: %q", conf.Name)

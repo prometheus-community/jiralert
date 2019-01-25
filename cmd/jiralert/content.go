@@ -75,7 +75,7 @@ var (
 	allTemplates   = template.Must(template.New("").Parse(templates))
 	homeTemplate   = pageTemplate("home")
 	configTemplate = pageTemplate("config")
-	errorTemplate  = pageTemplate("error")
+	// errorTemplate  = pageTemplate("error")
 )
 
 func pageTemplate(name string) *template.Template {
@@ -104,10 +104,10 @@ func ConfigHandlerFunc(config *jiralert.Config) func(http.ResponseWriter, *http.
 
 // HandleError is an error handler that other handlers defer to in case of error. It is important to not have written
 // anything to w before calling HandleError(), or the 500 status code won't be set (and the content might be mixed up).
-func HandleError(err error, metricsPath string, w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusInternalServerError)
-	errorTemplate.Execute(w, &tdata{
-		DocsUrl: docsUrl,
-		Err:     err,
-	})
-}
+//func HandleError(err error, metricsPath string, w http.ResponseWriter, r *http.Request) {
+//	w.WriteHeader(http.StatusInternalServerError)
+//	errorTemplate.Execute(w, &tdata{
+//		DocsUrl: docsUrl,
+//		Err:     err,
+//	})
+//}
