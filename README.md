@@ -1,4 +1,9 @@
-# JIRAlert [![Build Status](https://travis-ci.org/free/jiralert.svg)](https://travis-ci.org/free/jiralert) [![Go Report Card](https://goreportcard.com/badge/github.com/free/jiralert)](https://goreportcard.com/report/github.com/free/jiralert) [![GoDoc](https://godoc.org/github.com/free/jiralert?status.svg)](https://godoc.org/github.com/free/jiralert)
+# JIRAlert 
+[![Build Status](https://travis-ci.org/free/jiralert.svg)](https://travis-ci.org/free/jiralert) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/free/jiralert)](https://goreportcard.com/report/github.com/free/jiralert) 
+[![GoDoc](https://godoc.org/github.com/free/jiralert?status.svg)](https://godoc.org/github.com/free/jiralert)
+[![Slack](https://img.shields.io/badge/join%20slack-%23jiralert-brightgreen.svg)](https://join.slack.com/t/improbable-eng/shared_invite/enQtMzQ1ODcyMzQ5MjM4LWY5ZWZmNGM2ODc5MmViNmQ3ZTA3ZTY3NzQwOTBlMTkzZmIxZTIxODk0OWU3YjZhNWVlNDU3MDlkZGViZjhkMjc)
+
 [Prometheus Alertmanager](https://github.com/prometheus/alertmanager) webhook receiver for [JIRA](https://www.atlassian.com/software/jira).
 
 ## Overview
@@ -77,6 +82,14 @@ To enable mutex and block profiling (i.e. `/debug/pprof/mutex` and `/debug/pprof
 ```bash
 env DEBUG=1 ./jiralert
 ```
+
+## Community
+
+*Jiralert* is an open source project and we welcome new contributors and members 
+of the community. Here are ways to get in touch with the community:
+
+* Slack: [#jiralert](https://join.slack.com/t/improbable-eng/shared_invite/enQtMzQ1ODcyMzQ5MjM4LWY5ZWZmNGM2ODc5MmViNmQ3ZTA3ZTY3NzQwOTBlMTkzZmIxZTIxODk0OWU3YjZhNWVlNDU3MDlkZGViZjhkMjc)
+* Issue Tracker: [GitHub Issues](https://github.com/free/jiralert/issues)
 
 ## License
 
