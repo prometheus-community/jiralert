@@ -11,6 +11,8 @@ RELEASE_DIR := release/$(RELEASE)
 PACKAGES           := $(shell $(GO) list ./... | grep -v /vendor/)
 STATICCHECK_IGNORE :=
 
+DOCKER_IMAGE_NAME := jiralert
+
 all: clean format staticcheck build
 
 clean:
@@ -26,7 +28,14 @@ staticcheck: get_staticcheck
 
 build:
 	@echo ">> building binaries"
-	@GOOS=linux GOARCH=amd64 $(GO) build -ldflags "-X main.Version=$(VERSION)" github.com/free/jiralert/cmd/jiralert
+	@# CGO must be disabled to run in busybox container.
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -ldflags "-X main.Version=$(VERSION)" github.com/free/jiralert/cmd/jiralert
+
+
+# docker builds docker with no tag.
+docker: build
+	@echo ">> building docker image '${DOCKER_IMAGE_NAME}'"
+	@docker build -t "${DOCKER_IMAGE_NAME}" .
 
 tarball:
 	@echo ">> packaging release $(VERSION)"
