@@ -1,4 +1,5 @@
-GO := go
+GO          := go
+GOIMPORTS   ?= goimports
 STATICCHECK ?= staticcheck
 
 VERSION := $(shell git describe --tags 2>/dev/null)
@@ -10,6 +11,8 @@ RELEASE     := jiralert-$(VERSION).linux-amd64
 RELEASE_DIR := release/$(RELEASE)
 
 PACKAGES           := $(shell $(GO) list ./... | grep -v /vendor/)
+FILES              := $(shell find . -type f -name '*.go' -not -path "./vendor/*")
+
 STATICCHECK_IGNORE :=
 
 DOCKER_IMAGE_NAME := jiralert
@@ -21,7 +24,7 @@ clean:
 
 format:
 	@echo ">> formatting code"
-	@$(GO) fmt $(PACKAGES)
+	@$(GOIMPORTS) -w $(FILES)
 
 staticcheck: $(STATICCHECK)
 	@echo ">> running staticcheck"

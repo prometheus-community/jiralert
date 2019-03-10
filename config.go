@@ -125,7 +125,9 @@ func (rc *ReceiverConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 type Config struct {
 	Defaults  *ReceiverConfig   `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 	Receivers []*ReceiverConfig `yaml:"receivers,omitempty" json:"receivers,omitempty"`
-	Template  string            `yaml:"template" json:"template"`
+
+	// Template is optional template file that can be used to define more complex template variables.
+	Template string `yaml:"template" json:"template"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline" json:"-"`
@@ -230,10 +232,6 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	if len(c.Receivers) == 0 {
 		return fmt.Errorf("no receivers defined")
-	}
-
-	if c.Template == "" {
-		return fmt.Errorf("missing template file")
 	}
 
 	return checkOverflow(c.XXX, "config")
