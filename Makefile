@@ -1,4 +1,5 @@
 GO := go
+STATICCHECK ?= staticcheck
 
 VERSION := $(shell git describe --tags 2>/dev/null)
 ifeq "$(VERSION)" ""
@@ -22,7 +23,7 @@ format:
 	@echo ">> formatting code"
 	@$(GO) fmt $(PACKAGES)
 
-staticcheck: get_staticcheck
+staticcheck: $(STATICCHECK)
 	@echo ">> running staticcheck"
 	@staticcheck -ignore "$(STATICCHECK_IGNORE)" $(PACKAGES)
 
@@ -30,7 +31,6 @@ build:
 	@echo ">> building binaries"
 	@# CGO must be disabled to run in busybox container.
 	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -ldflags "-X main.Version=$(VERSION)" github.com/free/jiralert/cmd/jiralert
-
 
 # docker builds docker with no tag.
 docker: build
@@ -47,6 +47,6 @@ tarball:
 	@tar -zcvf "$(RELEASE).tar.gz" -C "$(RELEASE_DIR)"/.. "$(RELEASE)"
 	@rm -rf "$(RELEASE_DIR)"
 
-get_staticcheck:
+$(STATICCHECK):
 	@echo ">> getting staticcheck"
 	@GOOS= GOARCH= $(GO) get -u honnef.co/go/tools/cmd/staticcheck
