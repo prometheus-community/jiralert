@@ -9,10 +9,13 @@ import (
 	"runtime"
 	"strconv"
 
+	"github.com/free/jiralert/pkg/alertmanager"
+	"github.com/free/jiralert/pkg/config"
+	"github.com/free/jiralert/pkg/notify"
+	"github.com/free/jiralert/pkg/template"
+
 	_ "net/http/pprof"
 
-	"github.com/free/jiralert"
-	"github.com/free/jiralert/alertmanager"
 	log "github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -44,12 +47,12 @@ func main() {
 
 	log.Infof("Starting JIRAlert version %s", Version)
 
-	config, _, err := jiralert.LoadConfigFile(*configFile)
+	config, _, err := config.LoadFile(*configFile)
 	if err != nil {
 		log.Fatalf("Error loading configuration: %s", err)
 	}
 
-	tmpl, err := jiralert.LoadTemplate(config.Template)
+	tmpl, err := template.LoadTemplate(config.Template)
 	if err != nil {
 		log.Fatalf("Error loading templates from %s: %s", config.Template, err)
 	}
@@ -80,7 +83,7 @@ func main() {
 		}
 
 		if len(data.Alerts) > 0 {
-			r, err := jiralert.NewReceiver(conf, tmpl)
+			r, err := notify.NewReceiver(conf, tmpl)
 			if err != nil {
 				errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data)
 				return

@@ -1,4 +1,4 @@
-package jiralert
+package notify
 
 import (
 	"bytes"
@@ -8,21 +8,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/free/jiralert/pkg/config"
+	"github.com/free/jiralert/pkg/template"
+
 	"github.com/andygrunwald/go-jira"
-	"github.com/free/jiralert/alertmanager"
+	"github.com/free/jiralert/pkg/alertmanager"
 	log "github.com/golang/glog"
 	"github.com/trivago/tgo/tcontainer"
 )
 
 // Receiver wraps a JIRA client corresponding to a specific Alertmanager receiver, with its configuration and templates.
 type Receiver struct {
-	conf   *ReceiverConfig
-	tmpl   *Template
+	conf   *config.ReceiverConfig
+	tmpl   *template.Template
 	client *jira.Client
 }
 
 // NewReceiver creates a Receiver using the provided configuration and template.
-func NewReceiver(c *ReceiverConfig, t *Template) (*Receiver, error) {
+func NewReceiver(c *config.ReceiverConfig, t *template.Template) (*Receiver, error) {
 	tp := jira.BasicAuthTransport{
 		Username: c.User,
 		Password: string(c.Password),
@@ -38,9 +41,8 @@ func NewReceiver(c *ReceiverConfig, t *Template) (*Receiver, error) {
 // Notify implements the Notifier interface.
 func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 	project := r.tmpl.Execute(r.conf.Project, data)
-	// check errors from r.tmpl.Execute()
-	if r.tmpl.err != nil {
-		return false, r.tmpl.err
+	if err := r.tmpl.Err(); err != nil {
+		return false, err
 	}
 	// Looks like an ALERT metric name, with spaces removed.
 	issueLabel := toIssueLabel(data.GroupLabels)
@@ -106,9 +108,9 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 	for key, value := range r.conf.Fields {
 		issue.Fields.Unknowns[key] = deepCopyWithTemplate(value, r.tmpl, data)
 	}
-	// check errors from r.tmpl.Execute()
-	if r.tmpl.err != nil {
-		return false, r.tmpl.err
+
+	if err := r.tmpl.Err(); err != nil {
+		return false, err
 	}
 	retry, err = r.create(issue)
 	if err == nil {
@@ -120,7 +122,7 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 // deepCopyWithTemplate returns a deep copy of a map/slice/array/string/int/bool or combination thereof, executing the
 // provided template (with the provided data) on all string keys or values. All maps are connverted to
 // map[string]interface{}, with all non-string keys discarded.
-func deepCopyWithTemplate(value interface{}, tmpl *Template, data interface{}) interface{} {
+func deepCopyWithTemplate(value interface{}, tmpl *template.Template, data interface{}) interface{} {
 	if value == nil {
 		return value
 	}
