@@ -1,4 +1,4 @@
-package jiralert
+package config
 
 import (
 	"fmt"
@@ -32,8 +32,8 @@ func (s *Secret) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return unmarshal((*plain)(s))
 }
 
-// LoadConfig parses the YAML input into a Config.
-func LoadConfig(s string) (*Config, error) {
+// Load parses the YAML input into a Config.
+func Load(s string) (*Config, error) {
 	cfg := &Config{}
 	err := yaml.Unmarshal([]byte(s), cfg)
 	if err != nil {
@@ -43,14 +43,14 @@ func LoadConfig(s string) (*Config, error) {
 	return cfg, nil
 }
 
-// LoadConfigFile parses the given YAML file into a Config.
-func LoadConfigFile(filename string) (*Config, []byte, error) {
+// LoadFile parses the given YAML file into a Config.
+func LoadFile(filename string) (*Config, []byte, error) {
 	log.V(1).Infof("Loading configuration from %q", filename)
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, nil, err
 	}
-	cfg, err := LoadConfig(string(content))
+	cfg, err := Load(string(content))
 	if err != nil {
 		return nil, nil, err
 	}

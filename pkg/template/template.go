@@ -1,4 +1,4 @@
-package jiralert
+package template
 
 import (
 	"bytes"
@@ -39,6 +39,10 @@ func LoadTemplate(path string) (*Template, error) {
 		return nil, err
 	}
 	return &Template{tmpl: tmpl}, nil
+}
+
+func (t *Template) Err() error {
+	return t.err
 }
 
 // Execute parses the provided text (or returns it unchanged if not a Go template), associates it with the templates

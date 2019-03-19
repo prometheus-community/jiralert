@@ -5,7 +5,7 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/free/jiralert"
+	"github.com/free/jiralert/pkg/config"
 )
 
 const (
@@ -93,7 +93,7 @@ func HomeHandlerFunc() func(http.ResponseWriter, *http.Request) {
 }
 
 // ConfigHandlerFunc is the HTTP handler for the `/config` page. It outputs the configuration marshaled in YAML format.
-func ConfigHandlerFunc(config *jiralert.Config) func(http.ResponseWriter, *http.Request) {
+func ConfigHandlerFunc(config *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		configTemplate.Execute(w, &tdata{
 			DocsUrl: docsUrl,
