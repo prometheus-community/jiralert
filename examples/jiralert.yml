@@ -19,7 +19,7 @@ defaults:
   wont_fix_resolution: "Won't Fix"
   # Amount of time after being closed that an issue should be reopened, after which, a new issue is created.
   # Optional (default: always reopen)
-  reopen_duration: 0h
+  reopen_duration: 5m
 
 # Receiver definitions. At least one must be defined.
 receivers:
@@ -29,6 +29,7 @@ receivers:
     project: AB
     # Copy all Prometheus labels into separate JIRA labels. Optional (default: false).
     add_group_labels: false
+    reopen_duration: 3h
 
   - name: 'jira-xy'
     project: XY
