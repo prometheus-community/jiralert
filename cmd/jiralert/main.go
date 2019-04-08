@@ -53,12 +53,11 @@ func main() {
 			lvl = level.AllowError()
 		case "warn":
 			lvl = level.AllowWarn()
-		case "info":
-			lvl = level.AllowInfo()
 		case "debug":
 			lvl = level.AllowDebug()
+		case "info":
 		default:
-			panic("unexpected log level")
+			lvl = level.AllowInfo()
 		}
 		logger = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
 		if *logFormat == logFormatJson {
@@ -74,11 +73,13 @@ func main() {
 	config, _, err := config.LoadFile(*configFile)
 	if err != nil {
 		level.Error(logger).Log("msg", "error loading configuration", "path", *configFile, "err", err)
+		os.Exit(1)
 	}
 
 	tmpl, err := template.LoadTemplate(config.Template)
 	if err != nil {
 		level.Error(logger).Log("msg", "error loading templates", "path", config.Template, "err", err)
+		os.Exit(1)
 	}
 
 	http.HandleFunc("/alert", func(w http.ResponseWriter, req *http.Request) {
@@ -162,6 +163,6 @@ func errorHandler(w http.ResponseWriter, status int, err error, receiver string,
 	json := string(bytes[:])
 	fmt.Fprint(w, json)
 
-	level.Error(logger).Log("msg", "error handling request", "statusCode", status, "statusTest", http.StatusText(status), "err", err, "receiver", receiver, "groupLabels", data.GroupLabels)
+	level.Error(logger).Log("msg", "error handling request", "statusCode", status, "statusText", http.StatusText(status), "err", err, "receiver", receiver, "groupLabels", data.GroupLabels)
 	requestTotal.WithLabelValues(receiver, strconv.FormatInt(int64(status), 10)).Inc()
 }
