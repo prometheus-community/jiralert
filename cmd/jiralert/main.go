@@ -76,7 +76,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	tmpl, err := template.LoadTemplate(config.Template)
+	tmpl, err := template.LoadTemplate(config.Template, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "error loading templates", "path", config.Template, "err", err)
 		os.Exit(1)
@@ -113,7 +113,7 @@ func main() {
 				errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data, logger)
 				return
 			}
-			if retry, err := r.Notify(&data); err != nil {
+			if retry, err := r.Notify(&data, logger); err != nil {
 				var status int
 				if retry {
 					status = http.StatusServiceUnavailable
