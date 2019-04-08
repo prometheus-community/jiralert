@@ -18,7 +18,6 @@ import (
 
 	_ "net/http/pprof"
 
-	log "github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -44,54 +43,73 @@ func main() {
 		runtime.SetMutexProfileFraction(1)
 	}
 
-	// Override -alsologtostderr default value.
-	if alsoLogToStderr := flag.Lookup("alsologtostderr"); alsoLogToStderr != nil {
-		alsoLogToStderr.DefValue = "true"
-		alsoLogToStderr.Value.Set("true")
-	}
 	flag.Parse()
 
-	log.Infof("Starting JIRAlert version %s", Version)
+	var logger log.Logger
+	{
+		var lvl level.Option
+		switch *logLevel {
+		case "error":
+			lvl = level.AllowError()
+		case "warn":
+			lvl = level.AllowWarn()
+		case "info":
+			lvl = level.AllowInfo()
+		case "debug":
+			lvl = level.AllowDebug()
+		default:
+			panic("unexpected log level")
+		}
+		logger = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+		if *logFormat == logFormatJson {
+			logger = log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+		}
+		logger = level.NewFilter(logger, lvl)
+
+		logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
+	}
+
+	level.Info(logger).Log("msg", "starting JIRAlert", "version", Version)
 
 	config, _, err := config.LoadFile(*configFile)
 	if err != nil {
-		log.Fatalf("Error loading configuration: %s", err)
+		level.Error(logger).Log("msg", "error loading configuration", "path", *configFile, "err", err)
 	}
 
 	tmpl, err := template.LoadTemplate(config.Template)
 	if err != nil {
-		log.Fatalf("Error loading templates from %s: %s", config.Template, err)
+		level.Error(logger).Log("msg", "error loading templates", "path", config.Template, "err", err)
 	}
 
 	http.HandleFunc("/alert", func(w http.ResponseWriter, req *http.Request) {
-		log.V(1).Infof("Handling /alert webhook request")
+		level.Debug(logger).Log("msg", "handling /alert webhook request")
 		defer req.Body.Close()
 
 		// https://godoc.org/github.com/prometheus/alertmanager/template#Data
 		data := alertmanager.Data{}
 		if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
-			errorHandler(w, http.StatusBadRequest, err, unknownReceiver, &data)
+			errorHandler(w, http.StatusBadRequest, err, unknownReceiver, &data, logger)
 			return
 		}
 
 		conf := config.ReceiverByName(data.Receiver)
 		if conf == nil {
-			errorHandler(w, http.StatusNotFound, fmt.Errorf("receiver missing: %s", data.Receiver), unknownReceiver, &data)
+			errorHandler(w, http.StatusNotFound, fmt.Errorf("receiver missing: %s", data.Receiver), unknownReceiver, &data, logger)
 			return
 		}
-		log.V(1).Infof("Matched receiver: %q", conf.Name)
+		level.Debug(logger).Log("msg", "matched receiver", "receiver", conf.Name)
 
 		// Filter out resolved alerts, not interested in them.
 		alerts := data.Alerts.Firing()
 		if len(alerts) < len(data.Alerts) {
-			log.Warningf("Please set \"send_resolved: false\" on receiver %s in the Alertmanager config", conf.Name)
+			level.Warn(logger).Log("msg", "receiver should have \"send_resolved: false\" set in Alertmanager config", "receiver", conf.Name)
 			data.Alerts = alerts
 		}
 
 		if len(data.Alerts) > 0 {
 			r, err := notify.NewReceiver(conf, tmpl)
 			if err != nil {
-				errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data)
+				errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data, logger)
 				return
 			}
 			if retry, err := r.Notify(&data); err != nil {
@@ -101,7 +119,7 @@ func main() {
 				} else {
 					status = http.StatusInternalServerError
 				}
-				errorHandler(w, status, err, conf.Name, &data)
+				errorHandler(w, status, err, conf.Name, &data, logger)
 				return
 			}
 		}
@@ -118,11 +136,16 @@ func main() {
 		*listenAddress = ":" + os.Getenv("PORT")
 	}
 
-	log.Infof("Listening on %s", *listenAddress)
-	log.Fatal(http.ListenAndServe(*listenAddress, nil))
+	level.Info(logger).Log("msg", "listening", "address", *listenAddress)
+	err = http.ListenAndServe(*listenAddress, nil)
+	if err != nil {
+		level.Error(logger).Log("msg", "failed to start HTTP server", "address", *listenAddress)
+		os.Exit(1)
+	}
+
 }
 
-func errorHandler(w http.ResponseWriter, status int, err error, receiver string, data *alertmanager.Data) {
+func errorHandler(w http.ResponseWriter, status int, err error, receiver string, data *alertmanager.Data, logger log.Logger) {
 	w.WriteHeader(status)
 
 	response := struct {
@@ -139,6 +162,6 @@ func errorHandler(w http.ResponseWriter, status int, err error, receiver string,
 	json := string(bytes[:])
 	fmt.Fprint(w, json)
 
-	log.Errorf("%d %s: err=%s receiver=%q groupLabels=%+v", status, http.StatusText(status), err, receiver, data.GroupLabels)
+	level.Error(logger).Log("msg", "error handling request", "statusCode", status, "statusTest", http.StatusText(status), "err", err, "receiver", receiver, "groupLabels", data.GroupLabels)
 	requestTotal.WithLabelValues(receiver, strconv.FormatInt(int64(status), 10)).Inc()
 }
