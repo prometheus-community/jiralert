@@ -70,7 +70,7 @@ func main() {
 
 	level.Info(logger).Log("msg", "starting JIRAlert", "version", Version)
 
-	config, _, err := config.LoadFile(*configFile)
+	config, _, err := config.LoadFile(*configFile, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "error loading configuration", "path", *configFile, "err", err)
 		os.Exit(1)
