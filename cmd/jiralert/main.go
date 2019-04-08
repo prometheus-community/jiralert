@@ -13,6 +13,8 @@ import (
 	"github.com/free/jiralert/pkg/config"
 	"github.com/free/jiralert/pkg/notify"
 	"github.com/free/jiralert/pkg/template"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 
 	_ "net/http/pprof"
 
@@ -22,11 +24,15 @@ import (
 
 const (
 	unknownReceiver = "<unknown>"
+	logFormatLogfmt = "logfmt"
+	logFormatJson = "json"
 )
 
 var (
 	listenAddress = flag.String("listen-address", ":9097", "The address to listen on for HTTP requests.")
 	configFile    = flag.String("config", "config/jiralert.yml", "The JIRAlert configuration file")
+	logLevel      = flag.String("log.level", "info", "Log filtering level")
+	logFormat     = flag.String("log.format", logFormatLogfmt, "Log format to use")
 
 	// Version is the build version, set by make to latest git tag/hash via `-ldflags "-X main.Version=$(VERSION)"`.
 	Version = "<local build>"
