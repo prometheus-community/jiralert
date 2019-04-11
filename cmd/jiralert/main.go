@@ -145,7 +145,6 @@ func main() {
 		level.Error(logger).Log("msg", "failed to start HTTP server", "address", *listenAddress)
 		os.Exit(1)
 	}
-
 }
 
 func errorHandler(w http.ResponseWriter, status int, err error, receiver string, data *alertmanager.Data, logger log.Logger) {
