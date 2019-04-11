@@ -45,31 +45,7 @@ func main() {
 
 	flag.Parse()
 
-	var logger log.Logger
-	{
-		var lvl level.Option
-		switch *logLevel {
-		case "error":
-			lvl = level.AllowError()
-		case "warn":
-			lvl = level.AllowWarn()
-		case "debug":
-			lvl = level.AllowDebug()
-		case "info":
-		default:
-			lvl = level.AllowInfo()
-		}
-
-		if *logFormat == logFormatJson {
-			logger = log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
-		} else {
-			logger = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
-		}
-		logger = level.NewFilter(logger, lvl)
-
-		logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
-	}
-
+	var logger = setupLogger(*logLevel, *logFormat)
 	level.Info(logger).Log("msg", "starting JIRAlert", "version", Version)
 
 	config, _, err := config.LoadFile(*configFile, logger)
@@ -166,4 +142,28 @@ func errorHandler(w http.ResponseWriter, status int, err error, receiver string,
 
 	level.Error(logger).Log("msg", "error handling request", "statusCode", status, "statusText", http.StatusText(status), "err", err, "receiver", receiver, "groupLabels", data.GroupLabels)
 	requestTotal.WithLabelValues(receiver, strconv.FormatInt(int64(status), 10)).Inc()
+}
+
+func setupLogger(lvl string, fmt string) (logger log.Logger) {
+	var filter level.Option
+	switch lvl {
+	case "error":
+		filter = level.AllowError()
+	case "warn":
+		filter = level.AllowWarn()
+	case "debug":
+		filter = level.AllowDebug()
+	case "info":
+	default:
+		filter = level.AllowInfo()
+	}
+
+	if fmt == logFormatJson {
+		logger = log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+	} else {
+		logger = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+	}
+	logger = level.NewFilter(logger, filter)
+	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
+	return
 }
