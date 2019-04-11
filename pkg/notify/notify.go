@@ -57,24 +57,24 @@ func (r *Receiver) Notify(data *alertmanager.Data, logger log.Logger) (bool, err
 		// The set of JIRA status categories is fixed, this is a safe check to make.
 		if issue.Fields.Status.StatusCategory.Key != "done" {
 			// Issue is in a "to do" or "in progress" state, all done here.
-			level.Debug(logger).Log("msg", "nothing to do as issue is unresolved", "issue", issue.Key, "label", issueLabel)
+			level.Debug(logger).Log("msg", "doing nothing, as issue is unresolved", "key", issue.Key, "label", issueLabel)
 			return false, nil
 		}
 		if r.conf.WontFixResolution != "" && issue.Fields.Resolution != nil &&
 			issue.Fields.Resolution.Name == r.conf.WontFixResolution {
 			// Issue is resolved as "Won't Fix" or equivalent, log a message just in case.
-			level.Info(logger).Log("msg", "issue is resolved, not reopening", "issue", issue.Key, "label", issueLabel, "resolution", issue.Fields.Resolution.Name)
+			level.Info(logger).Log("msg", "not reopening issue, as it was resolved", "key", issue.Key, "label", issueLabel, "resolution", issue.Fields.Resolution.Name)
 			return false, nil
 		}
 
 		resolutionTime := time.Time(issue.Fields.Resolutiondate)
 		if resolutionTime.Add(time.Duration(*r.conf.ReopenDuration)).After(time.Now()) {
-			level.Info(logger).Log("msg", "issue was resolved after reopen duration, reopening", "issue", issue.Key, "label", issueLabel, "reopenDuration", *r.conf.ReopenDuration, "resolutionTime", resolutionTime)
+			level.Info(logger).Log("msg", "reopening issue, as it was resolved after reopen duration, ", "key", issue.Key, "label", issueLabel, "reopenDuration", *r.conf.ReopenDuration, "resolutionTime", resolutionTime.Format(time.RFC3339))
 			return r.reopen(issue.Key, logger)
 		}
 	}
 
-	level.Info(logger).Log("msg", "no issue, matching the label, found, opening a new one", "label", issueLabel)
+	level.Info(logger).Log("msg", "opening a new issue, as no issue matching the label was found, ", "label", issueLabel)
 	issue = &jira.Issue{
 		Fields: &jira.IssueFields{
 			Project:     jira.Project{Key: project},
@@ -115,7 +115,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, logger log.Logger) (bool, err
 	}
 	retry, err = r.create(issue, logger)
 	if err == nil {
-		level.Info(logger).Log("msg", "issue successfully created", "issue", issue.Key, "issueID", issue.ID)
+		level.Info(logger).Log("msg", "issue created", "key", issue.Key, "id", issue.ID)
 	}
 	return retry, err
 }
@@ -179,7 +179,7 @@ func (r *Receiver) search(project, issueLabel string, logger log.Logger) (*jira.
 		Fields:     []string{"summary", "status", "resolution", "resolutiondate"},
 		MaxResults: 2,
 	}
-	level.Debug(logger).Log("msg", "searching for existing issue", "query", query, "options", options)
+	level.Debug(logger).Log("msg", "search", "query", query, "options", options)
 	issues, resp, err := r.client.Issue.Search(query, options)
 	if err != nil {
 		retry, err := handleJiraError("Issue.Search", resp, err, logger)
@@ -191,10 +191,10 @@ func (r *Receiver) search(project, issueLabel string, logger log.Logger) (*jira.
 			level.Warn(logger).Log("msg", "more than one issue matched, updating only the last one", "query", query, "issues", issues)
 		}
 
-		level.Debug(logger).Log("msg", "found existing issue matching the query", "issue", issues[0], "query", query)
+		level.Debug(logger).Log("msg", "  found", "issue", issues[0], "query", query)
 		return &issues[0], false, nil
 	}
-	level.Debug(logger).Log("msg", "no existing issues matching query found", "query", query)
+	level.Debug(logger).Log("msg", "  no results", "query", query)
 	return nil, false, nil
 }
 
@@ -205,13 +205,13 @@ func (r *Receiver) reopen(issueKey string, logger log.Logger) (bool, error) {
 	}
 	for _, t := range transitions {
 		if t.Name == r.conf.ReopenState {
-			level.Debug(logger).Log("msg", "reopening issue", "issue", issueKey, "transitionID", t.ID)
+			level.Debug(logger).Log("msg", "reopen", "key", issueKey, "transitionID", t.ID)
 			resp, err = r.client.Issue.DoTransition(issueKey, t.ID)
 			if err != nil {
 				return handleJiraError("Issue.DoTransition", resp, err, logger)
 			}
 
-			level.Debug(logger).Log("msg", "issue successfully reopened")
+			level.Debug(logger).Log("msg", "  done")
 			return false, nil
 		}
 	}
@@ -219,14 +219,14 @@ func (r *Receiver) reopen(issueKey string, logger log.Logger) (bool, error) {
 }
 
 func (r *Receiver) create(issue *jira.Issue, logger log.Logger) (bool, error) {
-	level.Debug(logger).Log("msg", "creating new issue", "issue", *issue)
+	level.Debug(logger).Log("msg", "create", "issue", *issue)
 	newIssue, resp, err := r.client.Issue.Create(issue)
 	if err != nil {
 		return handleJiraError("Issue.Create", resp, err, logger)
 	}
 	*issue = *newIssue
 
-	level.Debug(logger).Log("msg", "issue successfully created", "issue", issue.Key, "issueID", issue.ID)
+	level.Debug(logger).Log("msg", "  done", "key", issue.Key, "id", issue.ID)
 	return false, nil
 }
 

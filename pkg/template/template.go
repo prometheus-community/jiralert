@@ -51,7 +51,7 @@ func (t *Template) Err() error {
 func (t *Template) Execute(text string, data interface{}, logger log.Logger) string {
 	level.Debug(logger).Log("msg", "executing template", "template", text)
 	if !strings.Contains(text, "{{") {
-		level.Debug(logger).Log("msg", "returning unchanged template")
+		level.Debug(logger).Log("msg", "  returning unchanged")
 		return text
 	}
 
