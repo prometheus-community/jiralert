@@ -30,8 +30,8 @@ const (
 var (
 	listenAddress = flag.String("listen-address", ":9097", "The address to listen on for HTTP requests.")
 	configFile    = flag.String("config", "config/jiralert.yml", "The JIRAlert configuration file")
-	logLevel      = flag.String("log.level", "info", "Log filtering level")
-	logFormat     = flag.String("log.format", logFormatLogfmt, "Log format to use")
+	logLevel      = flag.String("log.level", "info", "Log filtering level (debug, info, warn, error)")
+	logFormat     = flag.String("log.format", logFormatLogfmt, "Log format to use (" + logFormatLogfmt + ", " + logFormatJson + ")")
 
 	// Version is the build version, set by make to latest git tag/hash via `-ldflags "-X main.Version=$(VERSION)"`.
 	Version = "<local build>"
