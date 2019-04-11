@@ -59,9 +59,11 @@ func main() {
 		default:
 			lvl = level.AllowInfo()
 		}
-		logger = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+
 		if *logFormat == logFormatJson {
 			logger = log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
+		} else {
+			logger = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
 		}
 		logger = level.NewFilter(logger, lvl)
 
