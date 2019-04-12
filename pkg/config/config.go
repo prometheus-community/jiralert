@@ -74,31 +74,52 @@ func resolveFilepaths(baseDir string, cfg *Config, logger log.Logger) {
 	cfg.Template = join(cfg.Template)
 }
 
-// ReceiverConfig is the configuration for one receiver. It has a unique name and includes API access fields (URL, user
-// and password) and issue fields (required -- e.g. project, issue type -- and optional -- e.g. priority).
+// ReceiverConfig is the configuration for one receiver.
 type ReceiverConfig struct {
+	// Name represents unique name for a receiver.
+	// If Iiralert is used with Alertmanager, name it as Alertmanager receiver that sends alert via webhook to Jiralert for
+	// desired propagation.
 	Name string `yaml:"name" json:"name"`
 
-	// API access fields
+	// APIURL specifies API URL for JIRA e.g https://<your org>.atlassian.net.
+	// Required.
 	APIURL   string `yaml:"api_url" json:"api_url"`
+	// User specifies user to pass in basicauth against JIRA.
 	User     string `yaml:"user" json:"user"`
+	// Password specifies password in baiscauth against JIRA.
 	Password Secret `yaml:"password" json:"password"`
 
-	// Required issue fields
-	Project     string `yaml:"project" json:"project"`
-	IssueType   string `yaml:"issue_type" json:"issue_type"`
-	Summary     string `yaml:"summary" json:"summary"`
-	ReopenState string `yaml:"reopen_state" json:"reopen_state"`
+	// Required issue fields.
 
-	// Optional issue fields
-	Priority          string                 `yaml:"priority" json:"priority"`
-	Description       string                 `yaml:"description" json:"description"`
-	WontFixResolution string                 `yaml:"wont_fix_resolution" json:"wont_fix_resolution"`
-	Fields            map[string]interface{} `yaml:"fields" json:"fields"`
-	Components        []string               `yaml:"components" json:"components"`
+	// Projects specifies in what project within  org to create/reopen JIRA issues.
+	Project     string `yaml:"project" json:"project"`
+	// IssueType specifies what type of the issue to use for new JIRA issues.
+	IssueType   string `yaml:"issue_type" json:"issue_type"`
+	// Summary specifies Golang template invocation for generating the issue summary.
+	Summary     string `yaml:"summary" json:"summary"`
+	// ReopenState specifies the state to transition into when reopening a closed issue.
+	// This state has to exists for the chosen project.
+	ReopenState string `yaml:"reopen_state" json:"reopen_state"`
+	// ReopenDuration specifies the time after being closed that an issue should be reopened, after which,
+	// a new issue is created instead. Set to large value if you always want to reopen.
 	ReopenDuration    *Duration              `yaml:"reopen_duration" json:"reopen_duration"`
 
-	// Label copy settings
+	// Optional issue fields.
+
+	// Priority represents issue priority.
+	Priority          string                 `yaml:"priority" json:"priority"`
+	// Description specifies Golang template invocation for generating the issue description.
+	Description       string                 `yaml:"description" json:"description"`
+	// WontFixResolution specifies to not reopen issues with this resolution. Useful for silencing alerts.
+	WontFixResolution string                 `yaml:"wont_fix_resolution" json:"wont_fix_resolution"`
+	// Fields specifies standard or custom field values to set on created issue.
+	//
+	// See https://developer.atlassian.com/server/jira/platform/jira-rest-api-examples/#setting-custom-field-data-for-other-field-types for further examples.
+	Fields            map[string]interface{} `yaml:"fields" json:"fields"`
+	// Components specifies issue components. Sometimes required, depending on JIRA project.
+	Components        []string               `yaml:"components" json:"components"`
+	// AddGroupLabels specifies if all Prometheus labels should be copied into separate JIRA labels.
+	// Default: false.
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
 
 	// Catches all undefined fields and must be empty after parsing.
@@ -123,8 +144,13 @@ func (rc *ReceiverConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 
 // Config is the top-level configuration for JIRAlert's config file.
 type Config struct {
+	// Default specifies default values to be used in place of any ReceiverConfig' empty field.
 	Defaults  *ReceiverConfig   `yaml:"defaults,omitempty" json:"defaults,omitempty"`
+
+	// Receivers contains configuration per each receiver.
 	Receivers []*ReceiverConfig `yaml:"receivers,omitempty" json:"receivers,omitempty"`
+
+	// Template specifies an optional file with template definitions.
 	Template  string            `yaml:"template" json:"template"`
 
 	// Catches all undefined fields and must be empty after parsing.
@@ -230,10 +256,6 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	if len(c.Receivers) == 0 {
 		return fmt.Errorf("no receivers defined")
-	}
-
-	if c.Template == "" {
-		return fmt.Errorf("missing template file")
 	}
 
 	return checkOverflow(c.XXX, "config")

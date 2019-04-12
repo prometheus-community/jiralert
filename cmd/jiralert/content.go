@@ -53,11 +53,6 @@ const (
       <h2>Configuration</h2>
       <pre>{{ .Config }}</pre>
     {{- end }}
-
-    {{ define "content.error" -}}
-      <h2>Error</h2>
-      <pre>{{ .Err }}</pre>
-    {{- end }}
     `
 )
 
@@ -66,16 +61,12 @@ type tdata struct {
 
 	// `/config` only
 	Config string
-
-	// `/error` only
-	Err error
 }
 
 var (
 	allTemplates   = template.Must(template.New("").Parse(templates))
 	homeTemplate   = pageTemplate("home")
 	configTemplate = pageTemplate("config")
-	// errorTemplate  = pageTemplate("error")
 )
 
 func pageTemplate(name string) *template.Template {
@@ -86,7 +77,7 @@ func pageTemplate(name string) *template.Template {
 // HomeHandlerFunc is the HTTP handler for the home page (`/`).
 func HomeHandlerFunc() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		homeTemplate.Execute(w, &tdata{
+		_ = homeTemplate.Execute(w, &tdata{
 			DocsUrl: docsUrl,
 		})
 	}
@@ -95,19 +86,9 @@ func HomeHandlerFunc() func(http.ResponseWriter, *http.Request) {
 // ConfigHandlerFunc is the HTTP handler for the `/config` page. It outputs the configuration marshaled in YAML format.
 func ConfigHandlerFunc(config *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		configTemplate.Execute(w, &tdata{
+		_ = configTemplate.Execute(w, &tdata{
 			DocsUrl: docsUrl,
 			Config:  config.String(),
 		})
 	}
 }
-
-// HandleError is an error handler that other handlers defer to in case of error. It is important to not have written
-// anything to w before calling HandleError(), or the 500 status code won't be set (and the content might be mixed up).
-//func HandleError(err error, metricsPath string, w http.ResponseWriter, r *http.Request) {
-//	w.WriteHeader(http.StatusInternalServerError)
-//	errorTemplate.Execute(w, &tdata{
-//		DocsUrl: docsUrl,
-//		Err:     err,
-//	})
-//}
