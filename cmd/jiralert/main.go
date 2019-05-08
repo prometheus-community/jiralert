@@ -76,7 +76,7 @@ func main() {
 			errorHandler(w, http.StatusNotFound, fmt.Errorf("receiver missing: %s", data.Receiver), unknownReceiver, &data, logger)
 			return
 		}
-		level.Debug(logger).Log("msg", "matched receiver", "receiver", conf.Name)
+		level.Debug(logger).Log("msg", "  matched receiver", "receiver", conf.Name)
 
 		// Filter out resolved alerts, not interested in them.
 		alerts := data.Alerts.Firing()
