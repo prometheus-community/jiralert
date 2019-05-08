@@ -188,7 +188,7 @@ func (r *Receiver) search(project, issueLabel string, logger log.Logger) (*jira.
 	if len(issues) > 0 {
 		if len(issues) > 1 {
 			// Swallow it, but log a message.
-			level.Warn(logger).Log("msg", "more than one issue matched, updating only the last one", "query", query, "issues", issues)
+			level.Debug(logger).Log("msg", "more than one issue matched, picking most recently resolved", "query", query, "issues", issues)
 		}
 
 		level.Debug(logger).Log("msg", "  found", "issue", issues[0], "query", query)
