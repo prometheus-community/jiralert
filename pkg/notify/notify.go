@@ -74,7 +74,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, logger log.Logger) (bool, err
 		}
 	}
 
-	level.Info(logger).Log("msg", "opening a new issue, as no issue matching the label was found, ", "label", issueLabel)
+	level.Info(logger).Log("msg", "no recent matching issue found, creating new issue", "label", issueLabel)
 	issue = &jira.Issue{
 		Fields: &jira.IssueFields{
 			Project:     jira.Project{Key: project},
