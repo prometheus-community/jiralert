@@ -65,12 +65,12 @@ func (t *Template) Execute(text string, data interface{}, logger log.Logger) str
 	}
 	tmpl, t.err = tmpl.New("").Parse(text)
 	if t.err != nil {
-		level.Warn(logger).Log("msg", "failed to parse template")
+		level.Warn(logger).Log("msg", "failed to parse template", "template", text)
 		return ""
 	}
 	var buf bytes.Buffer
 	t.err = tmpl.Execute(&buf, data)
 	ret := buf.String()
-	level.Debug(logger).Log("msg", "returning parsed template", "template", ret)
+	level.Debug(logger).Log("msg", "  template output", "output", ret)
 	return ret
 }

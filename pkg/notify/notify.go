@@ -63,13 +63,13 @@ func (r *Receiver) Notify(data *alertmanager.Data, logger log.Logger) (bool, err
 		if r.conf.WontFixResolution != "" && issue.Fields.Resolution != nil &&
 			issue.Fields.Resolution.Name == r.conf.WontFixResolution {
 			// Issue is resolved as "Won't Fix" or equivalent, log a message just in case.
-			level.Info(logger).Log("msg", "not reopening issue, as it was resolved", "key", issue.Key, "label", issueLabel, "resolution", issue.Fields.Resolution.Name)
+			level.Info(logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, "label", issueLabel, "resolution", issue.Fields.Resolution.Name)
 			return false, nil
 		}
 
 		resolutionTime := time.Time(issue.Fields.Resolutiondate)
 		if resolutionTime.Add(time.Duration(*r.conf.ReopenDuration)).After(time.Now()) {
-			level.Info(logger).Log("msg", "reopening issue, as it was resolved after reopen duration, ", "key", issue.Key, "label", issueLabel, "reopenDuration", *r.conf.ReopenDuration, "resolutionTime", resolutionTime.Format(time.RFC3339))
+			level.Info(logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", issueLabel, "resolution_time", resolutionTime.Format(time.RFC3339), "reopen_duration", *r.conf.ReopenDuration)
 			return r.reopen(issue.Key, logger)
 		}
 	}
@@ -188,7 +188,7 @@ func (r *Receiver) search(project, issueLabel string, logger log.Logger) (*jira.
 	if len(issues) > 0 {
 		if len(issues) > 1 {
 			// Swallow it, but log a message.
-			level.Debug(logger).Log("msg", "more than one issue matched, picking most recently resolved", "query", query, "issues", issues)
+			level.Debug(logger).Log("msg", "  more than one issue matched, picking most recently resolved", "query", query, "issues", issues)
 		}
 
 		level.Debug(logger).Log("msg", "  found", "issue", issues[0], "query", query)
