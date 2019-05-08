@@ -67,7 +67,7 @@ func resolveFilepaths(baseDir string, cfg *Config, logger log.Logger) {
 			return fp
 		}
 		absFp := filepath.Join(baseDir, fp)
-		level.Debug(logger).Log("msg", "relative configuration path resolved", "relativePath", fp, "absolutePath", absFp)
+		level.Debug(logger).Log("msg", "resolved relative configuration path", "relativePath", fp, "absolutePath", absFp)
 		return absFp
 	}
 
