@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"io/ioutil"
 	"net/url"
 	"path/filepath"
@@ -10,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/golang/glog"
 	"github.com/trivago/tgo/tcontainer"
 	"gopkg.in/yaml.v2"
 )
@@ -39,13 +40,12 @@ func Load(s string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.V(1).Infof("Loaded config:\n%+v", cfg)
 	return cfg, nil
 }
 
 // LoadFile parses the given YAML file into a Config.
-func LoadFile(filename string) (*Config, []byte, error) {
-	log.V(1).Infof("Loading configuration from %q", filename)
+func LoadFile(filename string, logger log.Logger) (*Config, []byte, error) {
+	level.Info(logger).Log("msg", "loading configuration", "path", filename)
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, nil, err
@@ -55,19 +55,19 @@ func LoadFile(filename string) (*Config, []byte, error) {
 		return nil, nil, err
 	}
 
-	resolveFilepaths(filepath.Dir(filename), cfg)
+	resolveFilepaths(filepath.Dir(filename), cfg, logger)
 	return cfg, content, nil
 }
 
 // resolveFilepaths joins all relative paths in a configuration
 // with a given base directory.
-func resolveFilepaths(baseDir string, cfg *Config) {
+func resolveFilepaths(baseDir string, cfg *Config, logger log.Logger) {
 	join := func(fp string) string {
 		if len(fp) == 0 || filepath.IsAbs(fp) {
 			return fp
 		}
 		absFp := filepath.Join(baseDir, fp)
-		log.V(2).Infof("Relative path %q resolved to %q", fp, absFp)
+		level.Debug(logger).Log("msg", "resolved relative configuration path", "relativePath", fp, "absolutePath", absFp)
 		return absFp
 	}
 

@@ -2,11 +2,11 @@ package template
 
 import (
 	"bytes"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"regexp"
 	"strings"
 	"text/template"
-
-	log "github.com/golang/glog"
 )
 
 // Template wraps a text template and error, to make it easier to execute multiple templates and only check for errors
@@ -32,8 +32,8 @@ var funcs = template.FuncMap{
 }
 
 // LoadTemplate reads and parses all templates defined in the given file and constructs a jiralert.Template.
-func LoadTemplate(path string) (*Template, error) {
-	log.V(1).Infof("Loading templates from %q", path)
+func LoadTemplate(path string, logger log.Logger) (*Template, error) {
+	level.Debug(logger).Log("msg", "loading templates", "path", path)
 	tmpl, err := template.New("").Option("missingkey=zero").Funcs(funcs).ParseFiles(path)
 	if err != nil {
 		return nil, err
@@ -48,10 +48,10 @@ func (t *Template) Err() error {
 // Execute parses the provided text (or returns it unchanged if not a Go template), associates it with the templates
 // defined in t.tmpl (so they may be referenced and used) and applies the resulting template to the specified data
 // object, returning the output as a string.
-func (t *Template) Execute(text string, data interface{}) string {
-	log.V(2).Infof("Executing template %q...", text)
+func (t *Template) Execute(text string, data interface{}, logger log.Logger) string {
+	level.Debug(logger).Log("msg", "executing template", "template", text)
 	if !strings.Contains(text, "{{") {
-		log.V(2).Infof("  returning unchanged.")
+		level.Debug(logger).Log("msg", "  returning unchanged")
 		return text
 	}
 
@@ -65,12 +65,12 @@ func (t *Template) Execute(text string, data interface{}) string {
 	}
 	tmpl, t.err = tmpl.New("").Parse(text)
 	if t.err != nil {
-		log.V(2).Infof("  parse failed.")
+		level.Warn(logger).Log("msg", "failed to parse template", "template", text)
 		return ""
 	}
 	var buf bytes.Buffer
 	t.err = tmpl.Execute(&buf, data)
 	ret := buf.String()
-	log.V(2).Infof("  returning %q.", ret)
+	level.Debug(logger).Log("msg", "  template output", "output", ret)
 	return ret
 }
