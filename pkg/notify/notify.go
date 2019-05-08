@@ -57,7 +57,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, logger log.Logger) (bool, err
 		// The set of JIRA status categories is fixed, this is a safe check to make.
 		if issue.Fields.Status.StatusCategory.Key != "done" {
 			// Issue is in a "to do" or "in progress" state, all done here.
-			level.Debug(logger).Log("msg", "doing nothing, as issue is unresolved", "key", issue.Key, "label", issueLabel)
+			level.Debug(logger).Log("msg", "issue is unresolved, nothing to do", "key", issue.Key, "label", issueLabel)
 			return false, nil
 		}
 		if r.conf.WontFixResolution != "" && issue.Fields.Resolution != nil &&
