@@ -11,7 +11,7 @@ require (
 	github.com/google/go-querystring v0.0.0-20170111101155-53e6ce116135 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
-	github.com/pkg/errors v0.0.0-20181023235946-059132a15dd0 // indirect
+	github.com/pkg/errors v0.0.0-20181023235946-059132a15dd0
 	github.com/prometheus/client_golang v0.0.0-20171005112915-5cec1d0429b0
 	github.com/prometheus/client_model v0.0.0-20170216185247-6f3806018612 // indirect
 	github.com/prometheus/common v0.0.0-20171006141418-1bab55dd05db // indirect

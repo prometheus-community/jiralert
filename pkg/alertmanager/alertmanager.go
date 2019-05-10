@@ -99,6 +99,10 @@ func (kv KV) Values() []string {
 // End-users should not be exposed to Go's type system, as this will confuse them and prevent
 // simple things like simple equality checks to fail. Map everything to float64/string.
 type Data struct {
+	// The protocol version.
+	Version  string `json:"version"`
+	GroupKey string `json:"groupKey"`
+
 	Receiver string `json:"receiver"`
 	Status   string `json:"status"`
 	Alerts   Alerts `json:"alerts"`
@@ -125,7 +129,7 @@ type Alerts []Alert
 
 // Firing returns the subset of alerts that are firing.
 func (as Alerts) Firing() []Alert {
-	res := []Alert{}
+	var res []Alert
 	for _, a := range as {
 		if a.Status == AlertFiring {
 			res = append(res, a)

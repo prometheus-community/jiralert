@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/andygrunwald/go-jira"
 	"net/http"
 	"os"
 	"runtime"
@@ -78,32 +79,30 @@ func main() {
 		}
 		level.Debug(logger).Log("msg", "  matched receiver", "receiver", conf.Name)
 
-		// Filter out resolved alerts, not interested in them.
-		alerts := data.Alerts.Firing()
-		if len(alerts) < len(data.Alerts) {
-			level.Warn(logger).Log("msg", "receiver should have \"send_resolved: false\" set in Alertmanager config", "receiver", conf.Name)
-			data.Alerts = alerts
+		// TODO: Consider reusing notifiers or just jira clients to reuse connections.
+		tp := jira.BasicAuthTransport{
+			Username: conf.User,
+			Password: string(conf.Password),
+		}
+		client, err := jira.NewClient(tp.Client(), conf.APIURL)
+		if err != nil {
+			errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data, logger)
+			return
 		}
 
-		if len(data.Alerts) > 0 {
-			r, err := notify.NewReceiver(conf, tmpl)
-			if err != nil {
-				errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data, logger)
-				return
+		if retry, err := notify.NewReceiverWithClient(logger, conf, tmpl, client.Issue).Notify(&data); err != nil {
+			var status int
+			if retry {
+				// Let alertmanager to retry.
+				status = http.StatusServiceUnavailable
+			} else {
+				status = http.StatusInternalServerError
 			}
-			if retry, err := r.Notify(&data, logger); err != nil {
-				var status int
-				if retry {
-					status = http.StatusServiceUnavailable
-				} else {
-					status = http.StatusInternalServerError
-				}
-				errorHandler(w, status, err, conf.Name, &data, logger)
-				return
-			}
+			errorHandler(w, status, err, conf.Name, &data, logger)
+			return
 		}
-
 		requestTotal.WithLabelValues(conf.Name, "200").Inc()
+
 	})
 
 	http.HandleFunc("/", HomeHandlerFunc())
@@ -154,6 +153,7 @@ func setupLogger(lvl string, fmt string) (logger log.Logger) {
 	case "debug":
 		filter = level.AllowDebug()
 	case "info":
+		filter = level.AllowInfo()
 	default:
 		filter = level.AllowInfo()
 	}
