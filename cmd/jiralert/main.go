@@ -48,21 +48,21 @@ func main() {
 	var logger = setupLogger(*logLevel, *logFormat)
 	level.Info(logger).Log("msg", "starting JIRAlert", "version", Version)
 
-	config, _, err := config.LoadFile(*configFile, logger)
+	cfg, _, err := config.LoadFile(*configFile, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "error loading configuration", "path", *configFile, "err", err)
 		os.Exit(1)
 	}
 
-	tmpl, err := template.LoadTemplate(config.Template, logger)
+	tmpl, err := template.LoadTemplate(cfg.Template, logger)
 	if err != nil {
-		level.Error(logger).Log("msg", "error loading templates", "path", config.Template, "err", err)
+		level.Error(logger).Log("msg", "error loading templates", "path", cfg.Template, "err", err)
 		os.Exit(1)
 	}
 
 	http.HandleFunc("/alert", func(w http.ResponseWriter, req *http.Request) {
 		level.Debug(logger).Log("msg", "handling /alert webhook request")
-		defer req.Body.Close()
+		defer func() { _ = req.Body.Close() }()
 
 		// https://godoc.org/github.com/prometheus/alertmanager/template#Data
 		data := alertmanager.Data{}
@@ -71,7 +71,7 @@ func main() {
 			return
 		}
 
-		conf := config.ReceiverByName(data.Receiver)
+		conf := cfg.ReceiverByName(data.Receiver)
 		if conf == nil {
 			errorHandler(w, http.StatusNotFound, fmt.Errorf("receiver missing: %s", data.Receiver), unknownReceiver, &data, logger)
 			return
@@ -107,7 +107,7 @@ func main() {
 	})
 
 	http.HandleFunc("/", HomeHandlerFunc())
-	http.HandleFunc("/config", ConfigHandlerFunc(config))
+	http.HandleFunc("/cfg", ConfigHandlerFunc(cfg))
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "OK", http.StatusOK) })
 	http.Handle("/metrics", promhttp.Handler())
 

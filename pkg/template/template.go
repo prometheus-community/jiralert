@@ -32,13 +32,19 @@ var funcs = template.FuncMap{
 }
 
 // LoadTemplate reads and parses all templates defined in the given file and constructs a jiralert.Template.
+// If file is empty, or no file is passed, empty file template is returned.
 func LoadTemplate(path string, logger log.Logger) (*Template, error) {
-	level.Debug(logger).Log("msg", "loading templates", "path", path)
-	tmpl, err := template.New("").Option("missingkey=zero").Funcs(funcs).ParseFiles(path)
-	if err != nil {
-		return nil, err
+	if len(path) > 0 {
+		level.Debug(logger).Log("msg", "loading templates", "path", path)
+		tmpl, err := template.New("").Option("missingkey=zero").Funcs(funcs).ParseFiles(path)
+		if err != nil {
+			return nil, err
+		}
+		return &Template{tmpl: tmpl}, nil
 	}
-	return &Template{tmpl: tmpl}, nil
+
+	level.Info(logger).Log("msg", "no template was passed.")
+	return &Template{tmpl: template.New("")}, nil
 }
 
 func (t *Template) Err() error {

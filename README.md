@@ -52,9 +52,19 @@ $ curl -H "Content-type: application/json" -X POST \
 
 ## Configuration
 
-The configuration file is essentially a list of receivers matching 1-to-1 all Alertmanager receivers using JIRAlert; plus defaults (in the form of a partially defined receiver); and a pointer to the template file.
+The configuration file is essentially a list of JiraAlert receivers plus defaults (in the form of a partially defined receiver); and a pointer to the template file.
 
-Each receiver must have a unique name (matching the Alertmanager receiver name), JIRA API access fields (URL, username and password), a handful of required issue fields (such as the JIRA project and issue summary), some optional issue fields (e.g. priority) and a `fields` map for other (standard or custom) JIRA fields. Most of these may use [Go templating](https://golang.org/pkg/text/template/) to generate the actual field values based on the contents of the Alertmanager notification. The exact same data structures and functions as those defined in the [Alertmanager template reference](https://prometheus.io/docs/alerting/notifications/) are available in JIRAlert.
+You can find more docs in [the configuration itself](/pkg/config/config.go)
+
+Each receiver must have:
+* a unique name (matching the Alertmanager receiver name)
+* JIRA API access fields (URL, username and password),
+* handful of required issue fields (such as the JIRA project and issue summary), 
+* some optional issue fields (e.g. priority) and a `fields` map for other (standard or custom) JIRA fields. 
+
+Most of these may use [Go templating](https://golang.org/pkg/text/template/) to generate the actual field values based on the contents of the Alertmanager notification. 
+
+The exact same data structures and functions as those defined in the [Alertmanager template reference](https://prometheus.io/docs/alerting/notifications/) are available in JIRAlert.
 
 ## Alertmanager configuration
 
