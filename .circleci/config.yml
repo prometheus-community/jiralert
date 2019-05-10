@@ -1,0 +1,25 @@
+# NOTE: Current plan gives 1500 build minutes per month.
+version: 2
+jobs:
+  test:
+    docker:
+      # Available from https://hub.docker.com/r/circleci/golang/
+      - image: circleci/golang:1.12
+    working_directory: /go/src/github.com/free/jiralert
+    environment:
+      GO111MODULE: 'on'
+      GOBIN: "/tmp/bin"
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 17.07.0-ce
+      - run: make
+
+workflows:
+  version: 2
+  jiralert:
+    jobs:
+      - test:
+          filters:
+            tags:
+              only: /.*/

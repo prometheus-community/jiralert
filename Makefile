@@ -1,5 +1,6 @@
 GO := go
-STATICCHECK := ${GOBIN}/staticcheck
+GOBIN       ?= ${GOPATH}/bin
+STATICCHECK := $(GOBIN)/staticcheck
 
 VERSION := $(shell git describe --tags 2>/dev/null)
 ifeq "$(VERSION)" ""
@@ -11,10 +12,13 @@ RELEASE_DIR := release/$(RELEASE)
 
 PACKAGES           := $(shell $(GO) list ./... | grep -v /vendor/)
 STATICCHECK_IGNORE :=
+DOCKER_IMAGE_NAME  := jiralert
 
-DOCKER_IMAGE_NAME := jiralert
+# v1.2.0
+ERRCHECK_VERSION  ?= e14f8d59a22d460d56c5ee92507cd94c78fbf274
+ERRCHECK          ?= $(GOBIN)/errcheck-$(ERRCHECK_VERSION)
 
-all: clean format check build
+all: check-go-mod clean format check errcheck build test
 
 clean:
 	@rm -rf jiralert release
@@ -42,13 +46,33 @@ tarball:
 	@rm -rf "$(RELEASE_DIR)/*"
 	@mkdir -p "$(RELEASE_DIR)"
 	@cp jiralert README.md LICENSE "$(RELEASE_DIR)"
-	@mkdir -p "$(RELEASE_DIR)/config"
+	@mkdir -p "$(RELEASE_WDIR)/config"
 	@cp config/* "$(RELEASE_DIR)/config"
 	@tar -zcvf "$(RELEASE).tar.gz" -C "$(RELEASE_DIR)"/.. "$(RELEASE)"
 	@rm -rf "$(RELEASE_DIR)"
 
+.PHONY: check-go-mod
+check-go-mod:
+	@go mod verify
+
+# errcheck performs static analysis and returns error if any of the errors is not checked.
+.PHONY: errcheck
+errcheck: $(ERRCHECK)
+	@echo ">> errchecking the code"
+	$(ERRCHECK) -verbose -exclude .errcheck_excludes.txt ./cmd/... ./pkg/...
+
+.PHONY: test
+test:
+	@echo ">> running all tests."
+	@go test $(shell go list ./... | grep -v /vendor/);
+
+$(ERRCHECK):
+	@go get github.com/kisielk/errcheck@$(ERRCHECK_VERSION)
+	@mv $(GOBIN)/errcheck $(ERRCHECK)
+	@go mod tidy
+
 $(STATICCHECK):
-ifeq (${GOBIN},)
+ifeq ($(GOBIN),)
 	@echo >&2 "GOBIN environment variable is not defined, where to put installed binaries?"; exit 1
 endif
 	@echo ">> getting staticcheck"

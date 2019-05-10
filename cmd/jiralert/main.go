@@ -24,14 +24,14 @@ import (
 const (
 	unknownReceiver = "<unknown>"
 	logFormatLogfmt = "logfmt"
-	logFormatJson = "json"
+	logFormatJson   = "json"
 )
 
 var (
 	listenAddress = flag.String("listen-address", ":9097", "The address to listen on for HTTP requests.")
 	configFile    = flag.String("config", "config/jiralert.yml", "The JIRAlert configuration file")
 	logLevel      = flag.String("log.level", "info", "Log filtering level (debug, info, warn, error)")
-	logFormat     = flag.String("log.format", logFormatLogfmt, "Log format to use (" + logFormatLogfmt + ", " + logFormatJson + ")")
+	logFormat     = flag.String("log.format", logFormatLogfmt, "Log format to use ("+logFormatLogfmt+", "+logFormatJson+")")
 
 	// Version is the build version, set by make to latest git tag/hash via `-ldflags "-X main.Version=$(VERSION)"`.
 	Version = "<local build>"
@@ -62,7 +62,7 @@ func main() {
 
 	http.HandleFunc("/alert", func(w http.ResponseWriter, req *http.Request) {
 		level.Debug(logger).Log("msg", "handling /alert webhook request")
-		defer req.Body.Close()
+		defer func() { _ = req.Body.Close() }()
 
 		// https://godoc.org/github.com/prometheus/alertmanager/template#Data
 		data := alertmanager.Data{}

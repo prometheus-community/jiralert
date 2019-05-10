@@ -86,28 +86,22 @@ func pageTemplate(name string) *template.Template {
 // HomeHandlerFunc is the HTTP handler for the home page (`/`).
 func HomeHandlerFunc() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		homeTemplate.Execute(w, &tdata{
+		if err := homeTemplate.Execute(w, &tdata{
 			DocsUrl: docsUrl,
-		})
+		}); err != nil {
+			w.WriteHeader(500)
+		}
 	}
 }
 
 // ConfigHandlerFunc is the HTTP handler for the `/config` page. It outputs the configuration marshaled in YAML format.
 func ConfigHandlerFunc(config *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		configTemplate.Execute(w, &tdata{
+		if err := configTemplate.Execute(w, &tdata{
 			DocsUrl: docsUrl,
 			Config:  config.String(),
-		})
+		}); err != nil {
+			w.WriteHeader(500)
+		}
 	}
 }
-
-// HandleError is an error handler that other handlers defer to in case of error. It is important to not have written
-// anything to w before calling HandleError(), or the 500 status code won't be set (and the content might be mixed up).
-//func HandleError(err error, metricsPath string, w http.ResponseWriter, r *http.Request) {
-//	w.WriteHeader(http.StatusInternalServerError)
-//	errorTemplate.Execute(w, &tdata{
-//		DocsUrl: docsUrl,
-//		Err:     err,
-//	})
-//}
