@@ -90,10 +90,10 @@ func main() {
 			return
 		}
 
-		if retry, err := notify.NewReceiverWithClient(logger, conf, tmpl, client.Issue).Notify(&data); err != nil {
+		if retry, err := notify.NewReceiver(logger, conf, tmpl, client.Issue).Notify(&data); err != nil {
 			var status int
 			if retry {
-				// Let alertmanager to retry.
+				// Instruct Alertmanager to retry.
 				status = http.StatusServiceUnavailable
 			} else {
 				status = http.StatusInternalServerError

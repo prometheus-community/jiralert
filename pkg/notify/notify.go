@@ -29,7 +29,7 @@ type jiraIssueService interface {
 	DoTransition(ticketID, transitionID string) (*jira.Response, error)
 }
 
-// Receiver wraps a specific Alertmanager receiver, with its configuration and templates to notify given ticket service.
+// Receiver wraps a specific Alertmanager receiver with its configuration and templates, creating/updating/reopening Jira issues based on Alertmanager notifications.
 type Receiver struct {
 	logger log.Logger
 	client jiraIssueService
@@ -40,21 +40,21 @@ type Receiver struct {
 	timeNow func() time.Time
 }
 
-// NewReceiverWithClient creates a Receiver using the provided configuration, template and ticketClientService.
-func NewReceiverWithClient(logger log.Logger, c *config.ReceiverConfig, t *template.Template, client jiraIssueService) *Receiver {
+// NewReceiver creates a Receiver using the provided configuration, template and jiraIssueService.
+func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Template, client jiraIssueService) *Receiver {
 	return &Receiver{logger: logger, conf: c, tmpl: t, client: client, timeNow: time.Now}
 }
 
-// Notify translates alert to a ticket.
+// Notify manages JIRA issues based on alertmanager webhook notify message.
 func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 	project, err := r.tmpl.Execute(r.conf.Project, data)
 	if err != nil {
-		return false, errors.Wrap(err, "render project")
+		return false, errors.Wrap(err, "generate project from template")
 	}
 
 	issueGroupLabel := toGroupTicketLabel(data.GroupLabels)
 
-	issue, retry, err := r.issueToReuse(project, issueGroupLabel)
+	issue, retry, err := r.findIssueToReuse(project, issueGroupLabel)
 	if err != nil {
 		return retry, err
 	}
@@ -63,7 +63,7 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 	// This allows reflecting current group state if desired by user e.g {{ len $.Alerts.Firing() }}
 	issueSummary, err := r.tmpl.Execute(r.conf.Summary, data)
 	if err != nil {
-		return false, errors.Wrap(err, "render summary")
+		return false, errors.Wrap(err, "generate summary from template")
 	}
 
 	if issue != nil {
@@ -253,7 +253,7 @@ func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error)
 	return &issue, false, nil
 }
 
-func (r *Receiver) issueToReuse(project string, issueGroupLabel string) (*jira.Issue, bool, error) {
+func (r *Receiver) findIssueToReuse(project string, issueGroupLabel string) (*jira.Issue, bool, error) {
 	issue, retry, err := r.search(project, issueGroupLabel)
 	if err != nil {
 		return nil, retry, err
@@ -265,9 +265,10 @@ func (r *Receiver) issueToReuse(project string, issueGroupLabel string) (*jira.I
 
 	resolutionTime := time.Time(issue.Fields.Resolutiondate)
 	if resolutionTime != (time.Time{}) && resolutionTime.Add(time.Duration(*r.conf.ReopenDuration)).Before(r.timeNow()) {
-		level.Debug(r.logger).Log("msg", "potential issue to reuse was resolved after reopen duration, skipping", "key", issue.Key, "label", issueGroupLabel, "resolution_time", resolutionTime.Format(time.RFC3339), "reopen_duration", *r.conf.ReopenDuration)
+		level.Debug(r.logger).Log("msg", "existing resolved issue is too old to reopen, skipping", "key", issue.Key, "label", issueGroupLabel, "resolution_time", resolutionTime.Format(time.RFC3339), "reopen_duration", *r.conf.ReopenDuration)
 		return nil, false, nil
 	}
+
 	// Reuse issue.
 	return issue, false, nil
 }
@@ -285,7 +286,7 @@ func (r *Receiver) updateSummary(issueKey string, summary string) (bool, error) 
 	if err != nil {
 		return handleJiraErrResponse("Issue.UpdateWithOptions", resp, err, r.logger)
 	}
-	level.Debug(r.logger).Log("msg", "issue updated", "key", issue.Key, "id", issue.ID)
+	level.Debug(r.logger).Log("msg", "issue summary updated", "key", issue.Key, "id", issue.ID)
 	return false, nil
 }
 
@@ -297,7 +298,7 @@ func (r *Receiver) reopen(issueKey string) (bool, error) {
 
 	for _, t := range transitions {
 		if t.Name == r.conf.ReopenState {
-			level.Debug(r.logger).Log("msg", "update transition (reopen)", "key", issueKey, "transitionID", t.ID)
+			level.Debug(r.logger).Log("msg", "transition (reopen)", "key", issueKey, "transitionID", t.ID)
 			resp, err = r.client.DoTransition(issueKey, t.ID)
 			if err != nil {
 				return handleJiraErrResponse("Issue.DoTransition", resp, err, r.logger)

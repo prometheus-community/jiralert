@@ -22,7 +22,7 @@ func TestToGroupTicketLabel(t *testing.T) {
 	require.Equal(t, `ALERT{C="d",a="B"}`, toGroupTicketLabel(alertmanager.KV{"a": "B", "C": "d"}))
 }
 
-type mockedJira struct {
+type fakeJira struct {
 	// Key = ID for simplification.
 	issuesByKey map[string]*jira.Issue
 	keysByQuery map[string][]string
@@ -30,15 +30,15 @@ type mockedJira struct {
 	transitionsByID map[string]jira.Transition
 }
 
-func newTestFakeJira() *mockedJira {
-	return &mockedJira{
+func newTestFakeJira() *fakeJira {
+	return &fakeJira{
 		issuesByKey:     map[string]*jira.Issue{},
 		transitionsByID: map[string]jira.Transition{},
 		keysByQuery:     map[string][]string{},
 	}
 }
 
-func (f *mockedJira) Search(jql string, options *jira.SearchOptions) ([]jira.Issue, *jira.Response, error) {
+func (f *fakeJira) Search(jql string, options *jira.SearchOptions) ([]jira.Issue, *jira.Response, error) {
 	var issues []jira.Issue
 	for _, key := range f.keysByQuery[jql] {
 		issue := jira.Issue{Key: key, Fields: &jira.IssueFields{}}
@@ -75,7 +75,7 @@ func (f *mockedJira) Search(jql string, options *jira.SearchOptions) ([]jira.Iss
 	return issues, nil, nil
 }
 
-func (f *mockedJira) GetTransitions(_ string) ([]jira.Transition, *jira.Response, error) {
+func (f *fakeJira) GetTransitions(_ string) ([]jira.Transition, *jira.Response, error) {
 	var trs []jira.Transition
 	for _, tr := range f.transitionsByID {
 		trs = append(trs, tr)
@@ -83,7 +83,7 @@ func (f *mockedJira) GetTransitions(_ string) ([]jira.Transition, *jira.Response
 	return trs, nil, nil
 }
 
-func (f *mockedJira) Create(issue *jira.Issue) (*jira.Issue, *jira.Response, error) {
+func (f *fakeJira) Create(issue *jira.Issue) (*jira.Issue, *jira.Response, error) {
 	issue.Key = fmt.Sprintf("%d", len(f.issuesByKey)+1)
 	issue.ID = issue.Key
 	issue.Fields.Status = &jira.Status{
@@ -102,7 +102,7 @@ func (f *mockedJira) Create(issue *jira.Issue) (*jira.Issue, *jira.Response, err
 	return issue, nil, nil
 }
 
-func (f *mockedJira) UpdateWithOptions(old *jira.Issue, _ *jira.UpdateQueryOptions) (*jira.Issue, *jira.Response, error) {
+func (f *fakeJira) UpdateWithOptions(old *jira.Issue, _ *jira.UpdateQueryOptions) (*jira.Issue, *jira.Response, error) {
 	issue, ok := f.issuesByKey[old.Key]
 	if !ok {
 		return nil, nil, errors.Errorf("no such issue %s", old.Key)
@@ -113,7 +113,7 @@ func (f *mockedJira) UpdateWithOptions(old *jira.Issue, _ *jira.UpdateQueryOptio
 	return issue, nil, nil
 }
 
-func (f *mockedJira) DoTransition(ticketID, transitionID string) (*jira.Response, error) {
+func (f *fakeJira) DoTransition(ticketID, transitionID string) (*jira.Response, error) {
 	issue, ok := f.issuesByKey[ticketID]
 	if !ok {
 		return nil, errors.Errorf("no such issue %s", ticketID)
@@ -149,13 +149,13 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 		name               string
 		inputAlert         *alertmanager.Data
 		inputConfig        *config.ReceiverConfig
-		initJira           func(t *testing.T) *mockedJira
+		initJira           func(t *testing.T) *fakeJira
 		expectedJiraIssues map[string]*jira.Issue
 	}{
 		{
 			name:        "empty jira, new alert group",
 			inputConfig: testReceiverConfig1(),
-			initJira:    func(t *testing.T) *mockedJira { return newTestFakeJira() },
+			initJira:    func(t *testing.T) *fakeJira { return newTestFakeJira() },
 			inputAlert: &alertmanager.Data{
 				Alerts: alertmanager.Alerts{
 					{Status: alertmanager.AlertFiring},
@@ -184,7 +184,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 		{
 			name:        "opened ticket, update summary",
 			inputConfig: testReceiverConfig1(),
-			initJira: func(t *testing.T) *mockedJira {
+			initJira: func(t *testing.T) *fakeJira {
 				f := newTestFakeJira()
 				_, _, err := f.Create(&jira.Issue{
 					ID:  "1",
@@ -226,7 +226,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 		{
 			name:        "closed ticket, reopen and update summary",
 			inputConfig: testReceiverConfig1(),
-			initJira: func(t *testing.T) *mockedJira {
+			initJira: func(t *testing.T) *fakeJira {
 				f := newTestFakeJira()
 				_, _, err := f.Create(&jira.Issue{
 					ID:  "1",
@@ -281,7 +281,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 		{
 			name:        "closed won't fix ticket, update summary",
 			inputConfig: testReceiverConfig1(),
-			initJira: func(t *testing.T) *mockedJira {
+			initJira: func(t *testing.T) *fakeJira {
 				f := newTestFakeJira()
 				_, _, err := f.Create(&jira.Issue{
 					ID:  "1",
@@ -336,7 +336,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 		{
 			name:        "closed ticket, reopen time exceeded, create and update summary",
 			inputConfig: testReceiverConfig1(),
-			initJira: func(t *testing.T) *mockedJira {
+			initJira: func(t *testing.T) *fakeJira {
 				f := newTestFakeJira()
 				_, _, err := f.Create(&jira.Issue{
 					ID:  "1",
@@ -407,7 +407,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 		if ok := t.Run(tcase.name, func(t *testing.T) {
 			fakeJira := tcase.initJira(t)
 
-			receiver := NewReceiverWithClient(
+			receiver := NewReceiver(
 				log.NewLogfmtLogger(os.Stderr),
 				tcase.inputConfig,
 				template.SimpleTemplate(),
