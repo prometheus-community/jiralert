@@ -11,7 +11,6 @@ RELEASE     := jiralert-$(VERSION).linux-amd64
 RELEASE_DIR := release/$(RELEASE)
 
 PACKAGES           := $(shell $(GO) list ./... | grep -v /vendor/)
-STATICCHECK_IGNORE :=
 DOCKER_IMAGE_NAME  := jiralert
 
 # v1.2.0
@@ -29,7 +28,7 @@ format:
 
 check: $(STATICCHECK)
 	@echo ">> running staticcheck"
-	@$(STATICCHECK) -ignore "$(STATICCHECK_IGNORE)" $(PACKAGES)
+	@$(STATICCHECK) $(PACKAGES)
 
 build:
 	@echo ">> building binaries"
