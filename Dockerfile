@@ -4,7 +4,7 @@ RUN mkdir -p /go/src/github.com/free/jiralert && sudo chown -R circleci:circleci
 WORKDIR /go/src/github.com/free/jiralert
 RUN GO111MODULE=on GOBIN=/tmp/bin make
 
-FROM quay.io/prometheus/busybox:latest
+FROM quay.io/prometheus/busybox-linux-amd64:latest
 
 COPY --from=builder /go/src/github.com/free/jiralert/jiralert /bin/jiralert
 
