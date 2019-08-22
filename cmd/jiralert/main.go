@@ -153,7 +153,6 @@ func setupLogger(lvl string, fmt string) (logger log.Logger) {
 		filter = level.AllowWarn()
 	case "debug":
 		filter = level.AllowDebug()
-	case "info":
 	default:
 		filter = level.AllowInfo()
 	}
