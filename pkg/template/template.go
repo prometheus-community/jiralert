@@ -38,9 +38,13 @@ var funcs = template.FuncMap{
 	"join": func(sep string, s []string) string {
 		return strings.Join(s, sep)
 	},
+	"match": regexp.MatchString,
 	"reReplaceAll": func(pattern, repl, text string) string {
 		re := regexp.MustCompile(pattern)
 		return re.ReplaceAllString(text, repl)
+	},
+	"stringSlice": func(s ...string) []string {
+		return s
 	},
 }
 
