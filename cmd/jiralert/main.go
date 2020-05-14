@@ -1,3 +1,16 @@
+// Copyright 2017 The Prometheus Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -9,12 +22,14 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/free/jiralert/pkg/alertmanager"
-	"github.com/free/jiralert/pkg/config"
-	"github.com/free/jiralert/pkg/notify"
-	"github.com/free/jiralert/pkg/template"
+	"github.com/andygrunwald/go-jira"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/prometheus-community/jiralert/pkg/alertmanager"
+	"github.com/prometheus-community/jiralert/pkg/config"
+	"github.com/prometheus-community/jiralert/pkg/notify"
+	"github.com/prometheus-community/jiralert/pkg/template"
 
 	_ "net/http/pprof"
 
@@ -24,14 +39,14 @@ import (
 const (
 	unknownReceiver = "<unknown>"
 	logFormatLogfmt = "logfmt"
-	logFormatJson   = "json"
+	logFormatJSON   = "json"
 )
 
 var (
 	listenAddress = flag.String("listen-address", ":9097", "The address to listen on for HTTP requests.")
 	configFile    = flag.String("config", "config/jiralert.yml", "The JIRAlert configuration file")
 	logLevel      = flag.String("log.level", "info", "Log filtering level (debug, info, warn, error)")
-	logFormat     = flag.String("log.format", logFormatLogfmt, "Log format to use ("+logFormatLogfmt+", "+logFormatJson+")")
+	logFormat     = flag.String("log.format", logFormatLogfmt, "Log format to use ("+logFormatLogfmt+", "+logFormatJSON+")")
 
 	// Version is the build version, set by make to latest git tag/hash via `-ldflags "-X main.Version=$(VERSION)"`.
 	Version = "<local build>"
@@ -78,32 +93,30 @@ func main() {
 		}
 		level.Debug(logger).Log("msg", "  matched receiver", "receiver", conf.Name)
 
-		// Filter out resolved alerts, not interested in them.
-		alerts := data.Alerts.Firing()
-		if len(alerts) < len(data.Alerts) {
-			level.Warn(logger).Log("msg", "receiver should have \"send_resolved: false\" set in Alertmanager config", "receiver", conf.Name)
-			data.Alerts = alerts
+		// TODO: Consider reusing notifiers or just jira clients to reuse connections.
+		tp := jira.BasicAuthTransport{
+			Username: conf.User,
+			Password: string(conf.Password),
+		}
+		client, err := jira.NewClient(tp.Client(), conf.APIURL)
+		if err != nil {
+			errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data, logger)
+			return
 		}
 
-		if len(data.Alerts) > 0 {
-			r, err := notify.NewReceiver(conf, tmpl)
-			if err != nil {
-				errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data, logger)
-				return
+		if retry, err := notify.NewReceiver(logger, conf, tmpl, client.Issue).Notify(&data); err != nil {
+			var status int
+			if retry {
+				// Instruct Alertmanager to retry.
+				status = http.StatusServiceUnavailable
+			} else {
+				status = http.StatusInternalServerError
 			}
-			if retry, err := r.Notify(&data, logger); err != nil {
-				var status int
-				if retry {
-					status = http.StatusServiceUnavailable
-				} else {
-					status = http.StatusInternalServerError
-				}
-				errorHandler(w, status, err, conf.Name, &data, logger)
-				return
-			}
+			errorHandler(w, status, err, conf.Name, &data, logger)
+			return
 		}
-
 		requestTotal.WithLabelValues(conf.Name, "200").Inc()
+
 	})
 
 	http.HandleFunc("/", HomeHandlerFunc())
@@ -157,7 +170,7 @@ func setupLogger(lvl string, fmt string) (logger log.Logger) {
 		filter = level.AllowInfo()
 	}
 
-	if fmt == logFormatJson {
+	if fmt == logFormatJSON {
 		logger = log.NewJSONLogger(log.NewSyncWriter(os.Stderr))
 	} else {
 		logger = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))

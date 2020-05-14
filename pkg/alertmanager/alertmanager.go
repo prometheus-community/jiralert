@@ -1,3 +1,16 @@
+// Copyright 2017 The Prometheus Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // Package alertmanager defines structures and primitives to support Alertmanager's webhook API.
 //
 // Shamelessly ripped from github.com/prometheus/alertmanager/template/template.go to avoid a huge dependency tree,
@@ -99,6 +112,10 @@ func (kv KV) Values() []string {
 // End-users should not be exposed to Go's type system, as this will confuse them and prevent
 // simple things like simple equality checks to fail. Map everything to float64/string.
 type Data struct {
+	// The protocol version.
+	Version  string `json:"version"`
+	GroupKey string `json:"groupKey"`
+
 	Receiver string `json:"receiver"`
 	Status   string `json:"status"`
 	Alerts   Alerts `json:"alerts"`
@@ -125,7 +142,7 @@ type Alerts []Alert
 
 // Firing returns the subset of alerts that are firing.
 func (as Alerts) Firing() []Alert {
-	res := []Alert{}
+	var res []Alert
 	for _, a := range as {
 		if a.Status == AlertFiring {
 			res = append(res, a)

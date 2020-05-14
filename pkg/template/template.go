@@ -1,19 +1,32 @@
+// Copyright 2017 The Prometheus Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package template
 
 import (
 	"bytes"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"regexp"
 	"strings"
 	"text/template"
+
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/pkg/errors"
 )
 
-// Template wraps a text template and error, to make it easier to execute multiple templates and only check for errors
-// once at the end (assuming one is only interested in the first error, which is usually the case).
 type Template struct {
-	tmpl *template.Template
-	err  error
+	tmpl   *template.Template
+	logger log.Logger
 }
 
 var funcs = template.FuncMap{
@@ -42,39 +55,38 @@ func LoadTemplate(path string, logger log.Logger) (*Template, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Template{tmpl: tmpl}, nil
+	return &Template{tmpl: tmpl, logger: logger}, nil
 }
 
-func (t *Template) Err() error {
-	return t.err
+func SimpleTemplate() *Template {
+	return &Template{logger: log.NewNopLogger(), tmpl: template.New("").Option("missingkey=zero").Funcs(funcs)}
 }
 
 // Execute parses the provided text (or returns it unchanged if not a Go template), associates it with the templates
 // defined in t.tmpl (so they may be referenced and used) and applies the resulting template to the specified data
-// object, returning the output as a string.
-func (t *Template) Execute(text string, data interface{}, logger log.Logger) string {
-	level.Debug(logger).Log("msg", "executing template", "template", text)
+// object, returning the output as a string .
+func (t *Template) Execute(text string, data interface{}) (string, error) {
+	level.Debug(t.logger).Log("msg", "executing template", "template", text)
 	if !strings.Contains(text, "{{") {
-		level.Debug(logger).Log("msg", "  returning unchanged")
-		return text
+		level.Debug(t.logger).Log("msg", "returning unchanged")
+		return text, nil
 	}
 
-	if t.err != nil {
-		return ""
+	tmpl, err := t.tmpl.Clone()
+	if err != nil {
+		// There is literally no return flow in Clone that returns error.
+		return "", errors.Wrap(err, "parse clone tmpl")
 	}
-	var tmpl *template.Template
-	tmpl, t.err = t.tmpl.Clone()
-	if t.err != nil {
-		return ""
-	}
-	tmpl, t.err = tmpl.New("").Parse(text)
-	if t.err != nil {
-		level.Warn(logger).Log("msg", "failed to parse template", "template", text)
-		return ""
+	tmpl, err = tmpl.New("").Parse(text)
+	if err != nil {
+		return "", errors.Wrapf(err, "parse template %s", text)
 	}
 	var buf bytes.Buffer
-	t.err = tmpl.Execute(&buf, data)
+
+	if err = tmpl.Execute(&buf, data); err != nil {
+		return "", errors.Wrapf(err, "execute template %s", text)
+	}
 	ret := buf.String()
-	level.Debug(logger).Log("msg", "  template output", "output", ret)
-	return ret
+	level.Debug(t.logger).Log("msg", "template output", "output", ret)
+	return ret, nil
 }

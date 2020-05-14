@@ -4,8 +4,8 @@ jobs:
   test:
     docker:
       # Available from https://hub.docker.com/r/circleci/golang/
-      - image: circleci/golang:1.12
-    working_directory: /go/src/github.com/free/jiralert
+      - image: circleci/golang:1.13
+    working_directory: /go/src/github.com/prometheus-community/jiralert
     environment:
       GO111MODULE: 'on'
       GOBIN: "/tmp/bin"
