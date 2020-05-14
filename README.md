@@ -1,7 +1,7 @@
 # JIRAlert 
-[![Build Status](https://travis-ci.org/free/jiralert.svg)](https://travis-ci.org/free/jiralert) 
-[![Go Report Card](https://goreportcard.com/badge/github.com/free/jiralert)](https://goreportcard.com/report/github.com/free/jiralert) 
-[![GoDoc](https://godoc.org/github.com/free/jiralert?status.svg)](https://godoc.org/github.com/free/jiralert)
+[![Build Status](https://travis-ci.org/prometheus-community/jiralert.svg)](https://travis-ci.org/prometheus-community/jiralert) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/prometheus-community/jiralert)](https://goreportcard.com/report/github.com/prometheus-community/jiralert) 
+[![GoDoc](https://godoc.org/github.com/prometheus-community/jiralert?status.svg)](https://godoc.org/github.com/prometheus-community/jiralert)
 [![Slack](https://img.shields.io/badge/join%20slack-%23jiralert-brightgreen.svg)](https://join.slack.com/t/improbable-eng/shared_invite/enQtMzQ1ODcyMzQ5MjM4LWY5ZWZmNGM2ODc5MmViNmQ3ZTA3ZTY3NzQwOTBlMTkzZmIxZTIxODk0OWU3YjZhNWVlNDU3MDlkZGViZjhkMjc)
 
 [Prometheus Alertmanager](https://github.com/prometheus/alertmanager) webhook receiver for [JIRA](https://www.atlassian.com/software/jira).
@@ -14,10 +14,10 @@ If a corresponding JIRA issue already exists but is resolved, it is reopened. A 
 
 ## Usage
 
-Get JIRAlert, either as a [packaged release](https://github.com/free/jiralert/releases) or build it yourself:
+Get JIRAlert, either as a [packaged release](https://github.com/prometheus-community/jiralert/releases) or build it yourself:
 
 ```
-$ go get github.com/free/jiralert/cmd/jiralert
+$ go get github.com/prometheus-community/jiralert/cmd/jiralert
 ```
 
 then run it from the command line:
@@ -88,11 +88,10 @@ env DEBUG=1 ./jiralert
 *Jiralert* is an open source project and we welcome new contributors and members 
 of the community. Here are ways to get in touch with the community:
 
-* Slack: [#jiralert](https://join.slack.com/t/improbable-eng/shared_invite/enQtMzQ1ODcyMzQ5MjM4LWY5ZWZmNGM2ODc5MmViNmQ3ZTA3ZTY3NzQwOTBlMTkzZmIxZTIxODk0OWU3YjZhNWVlNDU3MDlkZGViZjhkMjc)
-* Issue Tracker: [GitHub Issues](https://github.com/free/jiralert/issues)
+* Issue Tracker: [GitHub Issues](https://github.com/prometheus-community/jiralert/issues)
 
 ## License
 
-JIRAlert is licensed under the [MIT License](https://github.com/free/jiralert/blob/master/LICENSE).
+JIRAlert is licensed under the [MIT License](https://github.com/prometheus-community/jiralert/blob/master/LICENSE).
 
 Copyright (c) 2017, Alin Sinpalean

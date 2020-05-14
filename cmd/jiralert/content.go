@@ -1,3 +1,16 @@
+// Copyright 2017 The Prometheus Authors
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -5,11 +18,11 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/free/jiralert/pkg/config"
+	"github.com/prometheus-community/jiralert/pkg/config"
 )
 
 const (
-	docsUrl   = "https://github.com/free/jiralert#readme"
+	docsURL   = "https://github.com/prometheus-community/jiralert#readme"
 	templates = `
     {{ define "page" -}}
       <html>
@@ -36,7 +49,7 @@ const (
           <div><a href="/config">Configuration</a></div>
           <div><a href="/metrics">Metrics</a></div>
           <div><a href="/debug/pprof">Profiling</a></div>
-          <div><a href="{{ .DocsUrl }}">Help</a></div>
+          <div><a href="{{ .DocsURL }}">Help</a></div>
         </div>
         {{template "content" .}}
       </body>
@@ -44,7 +57,7 @@ const (
     {{- end }}
 
     {{ define "content.home" -}}
-      <p>This is <a href="{{ .DocsUrl }}">JIRAlert</a>, a
+      <p>This is <a href="{{ .DocsURL }}">JIRAlert</a>, a
         <a href="https://prometheus.io/docs/alerting/configuration/#webhook_config">webhook receiver</a> for
         <a href="https://prometheus.io/docs/alerting/alertmanager/">Prometheus Alertmanager</a>.
     {{- end }}
@@ -62,7 +75,7 @@ const (
 )
 
 type tdata struct {
-	DocsUrl string
+	DocsURL string
 
 	// `/config` only
 	Config string
@@ -87,7 +100,7 @@ func pageTemplate(name string) *template.Template {
 func HomeHandlerFunc() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := homeTemplate.Execute(w, &tdata{
-			DocsUrl: docsUrl,
+			DocsURL: docsURL,
 		}); err != nil {
 			w.WriteHeader(500)
 		}
@@ -98,7 +111,7 @@ func HomeHandlerFunc() func(http.ResponseWriter, *http.Request) {
 func ConfigHandlerFunc(config *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := configTemplate.Execute(w, &tdata{
-			DocsUrl: docsUrl,
+			DocsURL: docsURL,
 			Config:  config.String(),
 		}); err != nil {
 			w.WriteHeader(500)
