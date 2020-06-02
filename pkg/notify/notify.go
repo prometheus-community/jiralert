@@ -276,7 +276,7 @@ func (r *Receiver) findIssueToReuse(project string, issueGroupLabel string) (*ji
 	}
 
 	resolutionTime := time.Time(issue.Fields.Resolutiondate)
-	if resolutionTime != (time.Time{}) && resolutionTime.Add(time.Duration(*r.conf.ReopenDuration)).Before(r.timeNow()) {
+	if resolutionTime != (time.Time{}) && resolutionTime.Add(time.Duration(*r.conf.ReopenDuration)).Before(r.timeNow()) && *r.conf.ReopenDuration != 0 {
 		level.Debug(r.logger).Log("msg", "existing resolved issue is too old to reopen, skipping", "key", issue.Key, "label", issueGroupLabel, "resolution_time", resolutionTime.Format(time.RFC3339), "reopen_duration", *r.conf.ReopenDuration)
 		return nil, false, nil
 	}
