@@ -30,6 +30,8 @@ type Template struct {
 }
 
 var funcs = template.FuncMap{
+	"splitn":  strings.Split,
+	"split":   strings.Split,
 	"toUpper": strings.ToUpper,
 	"toLower": strings.ToLower,
 	"title":   strings.Title,
