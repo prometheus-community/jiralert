@@ -194,17 +194,7 @@ func setupLogger(lvl string, fmt string) (logger log.Logger) {
 	return
 }
 
-// if KeyFile and CertFile are not specified, fall back to username/password
-// username/password and client certs are mutually exclusive
 func httpClient(conf *config.ReceiverConfig) (*http.Client, error) {
-	// if conf.KeyFile == "" && conf.CertFile == "" {
-	// 	hc := jira.BasicAuthTransport{
-	// 		Username: conf.User,
-	// 		Password: string(conf.Password),
-	// 	}
-	// 	return hc.Client(), nil
-	// }
-
 	tlsConfig, err := newTLSConfig(conf)
 	if err != nil {
 		return nil, err
