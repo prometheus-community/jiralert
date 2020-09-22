@@ -14,9 +14,12 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"runtime"
@@ -94,14 +97,25 @@ func main() {
 		level.Debug(logger).Log("msg", "  matched receiver", "receiver", conf.Name)
 
 		// TODO: Consider reusing notifiers or just jira clients to reuse connections.
-		tp := jira.BasicAuthTransport{
-			Username: conf.User,
-			Password: string(conf.Password),
-		}
-		client, err := jira.NewClient(tp.Client(), conf.APIURL)
+
+		// if cert and key are specified, ignore username/password
+		// TODO can we (easily) support both client cert and username/password?
+		hc, err := httpClient(conf)
 		if err != nil {
 			errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data, logger)
 			return
+		}
+
+		client, err := jira.NewClient(hc, conf.APIURL)
+		if err != nil {
+			errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data, logger)
+			return
+		}
+
+		if conf.User != "" && conf.Password != "" {
+			// SetBasicAuth is marked as deprecated, but can't use BasicAuthTransport
+			// with custom TLS settings, like InsecureSkipVerify
+			client.Authentication.SetBasicAuth(conf.User, string(conf.Password))
 		}
 
 		if retry, err := notify.NewReceiver(logger, conf, tmpl, client.Issue).Notify(&data); err != nil {
@@ -178,4 +192,90 @@ func setupLogger(lvl string, fmt string) (logger log.Logger) {
 	logger = level.NewFilter(logger, filter)
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 	return
+}
+
+// if KeyFile and CertFile are not specified, fall back to username/password
+// username/password and client certs are mutually exclusive
+func httpClient(conf *config.ReceiverConfig) (*http.Client, error) {
+	// if conf.KeyFile == "" && conf.CertFile == "" {
+	// 	hc := jira.BasicAuthTransport{
+	// 		Username: conf.User,
+	// 		Password: string(conf.Password),
+	// 	}
+	// 	return hc.Client(), nil
+	// }
+
+	tlsConfig, err := newTLSConfig(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	hc := &http.Client{
+		// Timeout: options.Timeout,
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+
+	return hc, nil
+
+}
+
+func newTLSConfig(conf *config.ReceiverConfig) (*tls.Config, error) {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: conf.InsecureSkipVerify,
+		Renegotiation:      tls.RenegotiateOnceAsClient}
+
+	// If a CA cert is provided then let's read it in
+	if len(conf.CAFile) > 0 {
+		b, err := readCAFile(conf.CAFile)
+		if err != nil {
+			return nil, err
+		}
+		if !updateRootCA(tlsConfig, b) {
+			return nil, fmt.Errorf("unable to use specified CA cert %s", conf.CAFile)
+		}
+	}
+
+	// If a client cert & key is provided then configure TLS config accordingly
+	if len(conf.CertFile) > 0 && len(conf.KeyFile) == 0 {
+		return nil, fmt.Errorf("client cert file %q specified without client key file", conf.CertFile)
+	} else if len(conf.KeyFile) > 0 && len(conf.CertFile) == 0 {
+		return nil, fmt.Errorf("client key file %q specified without client cert file", conf.KeyFile)
+	} else if len(conf.CertFile) > 0 && len(conf.KeyFile) > 0 {
+		cert, err := getClientCertificate(conf)
+		if err != nil {
+			return nil, err
+		}
+		tlsConfig.Certificates = []tls.Certificate{*cert}
+	}
+
+	return tlsConfig, nil
+}
+
+// readCAFile reads the CA cert file from disk.
+func readCAFile(f string) ([]byte, error) {
+	data, err := ioutil.ReadFile(f)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load specified CA cert %s: %s", f, err)
+	}
+	return data, nil
+}
+
+func updateRootCA(cfg *tls.Config, b []byte) bool {
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM(b) {
+		return false
+	}
+	cfg.RootCAs = caCertPool
+	return true
+}
+
+// getClientCertificate reads the pair of client cert and key from disk and returns a tls.Certificate.
+func getClientCertificate(c *config.ReceiverConfig) (*tls.Certificate, error) {
+	cert, err := tls.LoadX509KeyPair(c.CertFile, c.KeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("unable to use specified client cert (%s) and key (%s): %s", c.CertFile, c.KeyFile, err)
+	}
+	return &cert, nil
 }
