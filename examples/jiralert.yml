@@ -4,10 +4,9 @@ defaults:
   api_url: https://jiralert.atlassian.net
   user: jiralert
   password: 'JIRAlert'
-  # optional client cert
+  # Optional client certificate.
   # cert_file: /path/to/cert.crt
   # key_file: /path/to/cert.key
-  # insecure_skip_verify: false
 
   # The type of JIRA issue to create. Required.
   issue_type: Bug

@@ -182,8 +182,9 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		if _, err := url.Parse(rc.APIURL); err != nil {
 			return fmt.Errorf("invalid api_url %q in receiver %q: %s", rc.APIURL, rc.Name, err)
 		}
-		// user/password isn't technically required if using client cert
-		// auth, but will be ignored if set, so leaving this as required
+		// Username and password aren't necessarily required if using a client
+		// certificate for authentication, but they will (usually) be ignored in
+		// that situation, so leaving them as required.
 		if rc.User == "" {
 			if c.Defaults.User == "" {
 				return fmt.Errorf("missing user in receiver %q", rc.Name)
@@ -197,9 +198,10 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			rc.Password = c.Defaults.Password
 		}
 
-		// want to be able to override CAFile/KeyFile/CertFile in each receiver
-		// while still having a default value - use "none" to indicate no value
-		// set
+		// We want to be able to override CAFile/KeyFile/CertFile in each receiver
+		// even if there is a default value set. Setting it to a blank string will
+		// cause the existing logic to just fall back to the default, so we use
+		// "none" to indicate no value set.
 		if rc.CAFile == "none" {
 			rc.CAFile = ""
 		} else if rc.CAFile == "" && c.Defaults.CAFile != "" {
