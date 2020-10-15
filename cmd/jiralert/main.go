@@ -109,12 +109,6 @@ func main() {
 			return
 		}
 
-		if conf.User != "" && conf.Password != "" {
-			//lint:ignore SA1019 SetBasicAuth is marked as deprecated but we can't use
-			// BasicAuthTransport with custom TLS settings, like client certs.
-			client.Authentication.SetBasicAuth(conf.User, string(conf.Password))
-		}
-
 		if retry, err := notify.NewReceiver(logger, conf, tmpl, client.Issue).Notify(&data); err != nil {
 			var status int
 			if retry {
@@ -191,7 +185,19 @@ func setupLogger(lvl string, fmt string) (logger log.Logger) {
 	return
 }
 
+// createHTTPClient returns a jira.BasicAuthTransport or http Client, depending
+// on CAFile/client certificate options
 func createHTTPClient(conf *config.ReceiverConfig) (*http.Client, error) {
+
+	// if CAFile, CertFile or KeyFile aren't specified, return BasicAuthTransport client
+	if len(conf.CAFile) == 0 && len(conf.CertFile) == 0 && len(conf.KeyFile) == 0 {
+		tp := jira.BasicAuthTransport{
+			Username: conf.User,
+			Password: string(conf.Password),
+		}
+		return tp.Client(), nil
+	}
+
 	tlsConfig, err := newTLSConfig(conf)
 	if err != nil {
 		return nil, err
@@ -204,7 +210,6 @@ func createHTTPClient(conf *config.ReceiverConfig) (*http.Client, error) {
 	}
 
 	return hc, nil
-
 }
 
 func newTLSConfig(conf *config.ReceiverConfig) (*tls.Config, error) {
