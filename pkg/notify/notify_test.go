@@ -120,7 +120,14 @@ func (f *fakeJira) UpdateWithOptions(old *jira.Issue, _ *jira.UpdateQueryOptions
 		return nil, nil, errors.Errorf("no such issue %s", old.Key)
 	}
 
-	issue.Fields.Summary = old.Fields.Summary
+	if old.Fields.Summary != "" {
+		issue.Fields.Summary = old.Fields.Summary
+	}
+
+	if old.Fields.Description != "" {
+		issue.Fields.Description = old.Fields.Description
+	}
+
 	f.issuesByKey[issue.Key] = issue
 	return issue, nil, nil
 }
@@ -150,6 +157,18 @@ func testReceiverConfig1() *config.ReceiverConfig {
 		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
 		ReopenDuration:    &reopen,
 		ReopenState:       "reopened",
+		WontFixResolution: "won't-fix",
+	}
+}
+
+func testReceiverConfig2() *config.ReceiverConfig {
+	reopen := config.Duration(1 * time.Hour)
+	return &config.ReceiverConfig{
+		Project:           "abc",
+		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
+		ReopenDuration:    &reopen,
+		ReopenState:       "reopened",
+		Description:       `{{ .Alerts.Firing | len }}`,
 		WontFixResolution: "won't-fix",
 	}
 }
@@ -231,6 +250,50 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 						},
 						Unknowns: tcontainer.MarshalMap{},
 						Summary:  "[FIRING:1] b d ", // Title changed.
+					},
+				},
+			},
+		},
+		{
+			name:        "opened ticket, update summary and description",
+			inputConfig: testReceiverConfig2(),
+			initJira: func(t *testing.T) *fakeJira {
+				f := newTestFakeJira()
+				_, _, err := f.Create(&jira.Issue{
+					ID:  "1",
+					Key: "1",
+					Fields: &jira.IssueFields{
+						Project:     jira.Project{Key: testReceiverConfig2().Project},
+						Labels:      []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Unknowns:    tcontainer.MarshalMap{},
+						Summary:     "[FIRING:2] b d ",
+						Description: "2",
+					},
+				})
+				require.NoError(t, err)
+				return f
+			},
+			inputAlert: &alertmanager.Data{
+				Alerts: alertmanager.Alerts{
+					{Status: "not firing"},
+					{Status: alertmanager.AlertFiring}, // Only one firing now.
+				},
+				Status:      alertmanager.AlertFiring,
+				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
+			},
+			expectedJiraIssues: map[string]*jira.Issue{
+				"1": {
+					ID:  "1",
+					Key: "1",
+					Fields: &jira.IssueFields{
+						Project: jira.Project{Key: testReceiverConfig2().Project},
+						Labels:  []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Status: &jira.Status{
+							StatusCategory: jira.StatusCategory{Key: "NotDone"},
+						},
+						Unknowns:    tcontainer.MarshalMap{},
+						Summary:     "[FIRING:1] b d ", // Title changed.
+						Description: "1",
 					},
 				},
 			},
