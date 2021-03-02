@@ -13,11 +13,10 @@
 package notify
 
 import (
-	"bytes"
+	"crypto/sha512"
 	"fmt"
 	"io/ioutil"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/andygrunwald/go-jira"
@@ -232,16 +231,17 @@ func deepCopyWithTemplate(value interface{}, tmpl *template.Template, data inter
 
 // toGroupTicketLabel returns the group labels as a single string.
 // This is used to reference each ticket groups.
-// String is the form of an ALERT Prometheus metric name, with all spaces removed.
+// String is the form of ALERT{sha512hash(groupLabels)}
+// hashing ensures that JIRA validation still accepts the output even
+// if the combined length of all groupLabel key-value pairs would be
+// longer than 255 chars
 func toGroupTicketLabel(groupLabels alertmanager.KV) string {
-	buf := bytes.NewBufferString("ALERT{")
+	hash := sha512.New()
 	for _, p := range groupLabels.SortedPairs() {
-		buf.WriteString(p.Name)
-		buf.WriteString(fmt.Sprintf("=%q,", p.Value))
+		hash.Write([]byte(p.Name))
+		hash.Write([]byte(fmt.Sprintf("=%q,", p.Value)))
 	}
-	buf.Truncate(buf.Len() - 1)
-	buf.WriteString("}")
-	return strings.Replace(buf.String(), " ", "", -1)
+	return fmt.Sprintf("ALERT{%x}", hash.Sum(nil))
 }
 
 func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error) {
