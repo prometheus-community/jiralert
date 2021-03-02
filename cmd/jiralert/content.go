@@ -100,7 +100,7 @@ func pageTemplate(name string) *template.Template {
 func HomeHandlerFunc() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
-			w.WriteHeader(400)
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("only GET allowed"))
 			return
 		}
@@ -117,7 +117,7 @@ func HomeHandlerFunc() func(http.ResponseWriter, *http.Request) {
 func ConfigHandlerFunc(config *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
-			w.WriteHeader(400)
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("only GET allowed"))
 			return
 		}
