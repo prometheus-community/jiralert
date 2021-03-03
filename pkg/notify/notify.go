@@ -238,8 +238,8 @@ func deepCopyWithTemplate(value interface{}, tmpl *template.Template, data inter
 func toGroupTicketLabel(groupLabels alertmanager.KV) string {
 	hash := sha512.New()
 	for _, p := range groupLabels.SortedPairs() {
-		hash.Write([]byte(p.Name))
-		hash.Write([]byte(fmt.Sprintf("=%q,", p.Value)))
+		kvString := fmt.Sprintf("%s=%q,", p.Name, p.Value)
+		hash.Write([]byte(kvString)) // nolint:errcheck // hash.Write can never return an error
 	}
 	return fmt.Sprintf("ALERT{%x}", hash.Sum(nil))
 }
