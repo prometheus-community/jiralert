@@ -47,6 +47,8 @@ var (
 	configFile    = flag.String("config", "config/jiralert.yml", "The JIRAlert configuration file")
 	logLevel      = flag.String("log.level", "info", "Log filtering level (debug, info, warn, error)")
 	logFormat     = flag.String("log.format", logFormatLogfmt, "Log format to use ("+logFormatLogfmt+", "+logFormatJSON+")")
+	hashJiraLabel = flag.Bool("hash-jira-label", false, "if enabled: hash the key-value pairs inside of ALERT{...} in the created jira issue labels "+
+		"- this ensures that the label text does not overflow the allowed length in jira (255)")
 
 	// Version is the build version, set by make to latest git tag/hash via `-ldflags "-X main.Version=$(VERSION)"`.
 	Version = "<local build>"
@@ -104,7 +106,7 @@ func main() {
 			return
 		}
 
-		if retry, err := notify.NewReceiver(logger, conf, tmpl, client.Issue).Notify(&data); err != nil {
+		if retry, err := notify.NewReceiver(logger, conf, tmpl, client.Issue).Notify(&data, *hashJiraLabel); err != nil {
 			var status int
 			if retry {
 				// Instruct Alertmanager to retry.

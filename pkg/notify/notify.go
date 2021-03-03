@@ -13,10 +13,12 @@
 package notify
 
 import (
+	"bytes"
 	"crypto/sha512"
 	"fmt"
 	"io/ioutil"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/andygrunwald/go-jira"
@@ -57,13 +59,13 @@ func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Templa
 }
 
 // Notify manages JIRA issues based on alertmanager webhook notify message.
-func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
+func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, error) {
 	project, err := r.tmpl.Execute(r.conf.Project, data)
 	if err != nil {
 		return false, errors.Wrap(err, "generate project from template")
 	}
 
-	issueGroupLabel := toGroupTicketLabel(data.GroupLabels)
+	issueGroupLabel := toGroupTicketLabel(data.GroupLabels, hashJiraLabel)
 
 	issue, retry, err := r.findIssueToReuse(project, issueGroupLabel)
 	if err != nil {
@@ -231,17 +233,31 @@ func deepCopyWithTemplate(value interface{}, tmpl *template.Template, data inter
 
 // toGroupTicketLabel returns the group labels as a single string.
 // This is used to reference each ticket groups.
-// String is the form of ALERT{sha512hash(groupLabels)}
+// (old) default behavior: String is the form of an ALERT Prometheus metric name, with all spaces removed.
+// new opt-in behavior: String is the form of ALERT{sha512hash(groupLabels)}
 // hashing ensures that JIRA validation still accepts the output even
 // if the combined length of all groupLabel key-value pairs would be
 // longer than 255 chars
-func toGroupTicketLabel(groupLabels alertmanager.KV) string {
-	hash := sha512.New()
-	for _, p := range groupLabels.SortedPairs() {
-		kvString := fmt.Sprintf("%s=%q,", p.Name, p.Value)
-		hash.Write([]byte(kvString)) // nolint:errcheck // hash.Write can never return an error
+func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string {
+	// new opt in behavior
+	if hashJiraLabel {
+		hash := sha512.New()
+		for _, p := range groupLabels.SortedPairs() {
+			kvString := fmt.Sprintf("%s=%q,", p.Name, p.Value)
+			hash.Write([]byte(kvString)) // nolint:errcheck // hash.Write can never return an error
+		}
+		return fmt.Sprintf("ALERT{%x}", hash.Sum(nil))
 	}
-	return fmt.Sprintf("ALERT{%x}", hash.Sum(nil))
+
+	// old default behavior
+	buf := bytes.NewBufferString("ALERT{")
+	for _, p := range groupLabels.SortedPairs() {
+		buf.WriteString(p.Name)
+		buf.WriteString(fmt.Sprintf("=%q,", p.Value))
+	}
+	buf.Truncate(buf.Len() - 1)
+	buf.WriteString("}")
+	return strings.Replace(buf.String(), " ", "", -1)
 }
 
 func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error) {

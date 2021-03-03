@@ -31,7 +31,8 @@ import (
 )
 
 func TestToGroupTicketLabel(t *testing.T) {
-	require.Equal(t, `ALERT{9897cb21a3d1ba47d2aab501ce9bc60b74bf65e26658f8e34a7fc81705e6b6eadfe6ad8edfe7c68142b3fe10f2c89127bd85e5f3687fe6b9ff1eff4b3f71dd49}`, toGroupTicketLabel(alertmanager.KV{"a": "B", "C": "d"}))
+	require.Equal(t, `ALERT{9897cb21a3d1ba47d2aab501ce9bc60b74bf65e26658f8e34a7fc81705e6b6eadfe6ad8edfe7c68142b3fe10f2c89127bd85e5f3687fe6b9ff1eff4b3f71dd49}`, toGroupTicketLabel(alertmanager.KV{"a": "B", "C": "d"}, true))
+	require.Equal(t, `ALERT{C="d",a="B"}`, toGroupTicketLabel(alertmanager.KV{"a": "B", "C": "d"}, false))
 }
 
 type fakeJira struct {
@@ -493,7 +494,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 				return testNowTime
 			}
 
-			_, err := receiver.Notify(tcase.inputAlert)
+			_, err := receiver.Notify(tcase.inputAlert, true)
 			require.NoError(t, err)
 			require.Equal(t, tcase.expectedJiraIssues, fakeJira.issuesByKey)
 		}); !ok {
