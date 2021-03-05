@@ -234,7 +234,7 @@ func deepCopyWithTemplate(value interface{}, tmpl *template.Template, data inter
 // toGroupTicketLabel returns the group labels as a single string.
 // This is used to reference each ticket groups.
 // (old) default behavior: String is the form of an ALERT Prometheus metric name, with all spaces removed.
-// new opt-in behavior: String is the form of ALERT{sha512hash(groupLabels)}
+// new opt-in behavior: String is the form of JIRALERT{sha512hash(groupLabels)}
 // hashing ensures that JIRA validation still accepts the output even
 // if the combined length of all groupLabel key-value pairs would be
 // longer than 255 chars
@@ -246,7 +246,7 @@ func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string 
 			kvString := fmt.Sprintf("%s=%q,", p.Name, p.Value)
 			_, _ = hash.Write([]byte(kvString)) // hash.Write can never return an error
 		}
-		return fmt.Sprintf("ALERT{%x}", hash.Sum(nil))
+		return fmt.Sprintf("JIRALERT{%x}", hash.Sum(nil))
 	}
 
 	// old default behavior
