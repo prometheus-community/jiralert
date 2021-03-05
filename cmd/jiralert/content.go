@@ -101,7 +101,7 @@ func HomeHandlerFunc() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("only GET allowed")) //nolint:errcheck
+			_, _ = w.Write([]byte("only GET allowed"))
 			return
 		}
 
@@ -118,7 +118,7 @@ func ConfigHandlerFunc(config *config.Config) func(http.ResponseWriter, *http.Re
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("only GET allowed")) //nolint:errcheck
+			_, _ = w.Write([]byte("only GET allowed"))
 			return
 		}
 
