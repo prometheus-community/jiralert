@@ -78,10 +78,22 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 		return false, errors.Wrap(err, "generate summary from template")
 	}
 
+	issueDesc, err := r.tmpl.Execute(r.conf.Description, data)
+	if err != nil {
+		return false, errors.Wrap(err, "render issue description")
+	}
+
 	if issue != nil {
 		// Update summary if needed.
 		if issue.Fields.Summary != issueSummary {
 			retry, err := r.updateSummary(issue.Key, issueSummary)
+			if err != nil {
+				return retry, err
+			}
+		}
+
+		if issue.Fields.Description != issueDesc {
+			retry, err := r.updateDescription(issue.Key, issueDesc)
 			if err != nil {
 				return retry, err
 			}
@@ -118,11 +130,6 @@ func (r *Receiver) Notify(data *alertmanager.Data) (bool, error) {
 	issueType, err := r.tmpl.Execute(r.conf.IssueType, data)
 	if err != nil {
 		return false, errors.Wrap(err, "render issue type")
-	}
-
-	issueDesc, err := r.tmpl.Execute(r.conf.Description, data)
-	if err != nil {
-		return false, errors.Wrap(err, "render issue description")
 	}
 
 	issue = &jira.Issue{
@@ -292,6 +299,23 @@ func (r *Receiver) updateSummary(issueKey string, summary string) (bool, error) 
 		Key: issueKey,
 		Fields: &jira.IssueFields{
 			Summary: summary,
+		},
+	}
+	issue, resp, err := r.client.UpdateWithOptions(issueUpdate, nil)
+	if err != nil {
+		return handleJiraErrResponse("Issue.UpdateWithOptions", resp, err, r.logger)
+	}
+	level.Debug(r.logger).Log("msg", "issue summary updated", "key", issue.Key, "id", issue.ID)
+	return false, nil
+}
+
+func (r *Receiver) updateDescription(issueKey string, description string) (bool, error) {
+	level.Debug(r.logger).Log("msg", "updating issue with new description", "key", issueKey, "description", description)
+
+	issueUpdate := &jira.Issue{
+		Key: issueKey,
+		Fields: &jira.IssueFields{
+			Description: description,
 		},
 	}
 	issue, resp, err := r.client.UpdateWithOptions(issueUpdate, nil)
