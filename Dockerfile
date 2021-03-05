@@ -1,4 +1,4 @@
-FROM circleci/golang:1.12 AS builder
+FROM circleci/golang:1.14 AS builder
 COPY . /go/src/github.com/prometheus-community/jiralert
 RUN mkdir -p /go/src/github.com/prometheus-community/jiralert && sudo chown -R circleci:circleci /go/src/github.com/prometheus-community/
 WORKDIR /go/src/github.com/prometheus-community/jiralert
