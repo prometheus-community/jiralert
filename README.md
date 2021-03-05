@@ -52,6 +52,9 @@ $ curl -H "Content-type: application/json" -X POST \
 
 ## Configuration
 
+Attention: We have introduced a new behavior in [#79](https://github.com/prometheus-community/jiralert/pull/79) for building the string that is used as an issue label in jira so jiralert can find an issue it opened. The new behavior ensures that at all times the string is a legal issue label in the jira api. **This change is opt-in** to avoid breaking users upgrading from older releases, but we will remove the old behavior + flag in a future release.
+The flag is `-hash-jira-label` and the new labels will look like this: `JIRALERT{819ba5ec...}`
+
 The configuration file is essentially a list of receivers matching 1-to-1 all Alertmanager receivers using JIRAlert; plus defaults (in the form of a partially defined receiver); and a pointer to the template file.
 
 Each receiver must have a unique name (matching the Alertmanager receiver name), JIRA API access fields (URL, username and password), a handful of required issue fields (such as the JIRA project and issue summary), some optional issue fields (e.g. priority) and a `fields` map for other (standard or custom) JIRA fields. Most of these may use [Go templating](https://golang.org/pkg/text/template/) to generate the actual field values based on the contents of the Alertmanager notification. The exact same data structures and functions as those defined in the [Alertmanager template reference](https://prometheus.io/docs/alerting/notifications/) are available in JIRAlert.
