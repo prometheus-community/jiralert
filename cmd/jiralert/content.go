@@ -99,6 +99,12 @@ func pageTemplate(name string) *template.Template {
 // HomeHandlerFunc is the HTTP handler for the home page (`/`).
 func HomeHandlerFunc() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("only GET allowed"))
+			return
+		}
+
 		if err := homeTemplate.Execute(w, &tdata{
 			DocsURL: docsURL,
 		}); err != nil {
@@ -110,6 +116,12 @@ func HomeHandlerFunc() func(http.ResponseWriter, *http.Request) {
 // ConfigHandlerFunc is the HTTP handler for the `/config` page. It outputs the configuration marshaled in YAML format.
 func ConfigHandlerFunc(config *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte("only GET allowed"))
+			return
+		}
+
 		if err := configTemplate.Execute(w, &tdata{
 			DocsURL: docsURL,
 			Config:  config.String(),
