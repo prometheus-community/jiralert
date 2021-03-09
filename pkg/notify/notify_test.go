@@ -265,7 +265,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "1",
 					Fields: &jira.IssueFields{
 						Project:     jira.Project{Key: testReceiverConfig2().Project},
-						Labels:      []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:      []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Unknowns:    tcontainer.MarshalMap{},
 						Summary:     "[FIRING:2] b d ",
 						Description: "2",
@@ -288,7 +288,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "1",
 					Fields: &jira.IssueFields{
 						Project: jira.Project{Key: testReceiverConfig2().Project},
-						Labels:  []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Status: &jira.Status{
 							StatusCategory: jira.StatusCategory{Key: "NotDone"},
 						},
