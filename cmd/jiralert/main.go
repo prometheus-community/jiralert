@@ -65,6 +65,12 @@ func main() {
 	var logger = setupLogger(*logLevel, *logFormat)
 	level.Info(logger).Log("msg", "starting JIRAlert", "version", Version)
 
+	if !*hashJiraLabel {
+		level.Warn(logger).Log("msg", "Using deprecated jira label generation - "+
+			"please read https://github.com/prometheus-community/jiralert/pull/79 "+
+			"and try -hash-jira-label")
+	}
+
 	config, _, err := config.LoadFile(*configFile, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "error loading configuration", "path", *configFile, "err", err)
