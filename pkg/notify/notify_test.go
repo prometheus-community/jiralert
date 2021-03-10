@@ -31,7 +31,8 @@ import (
 )
 
 func TestToGroupTicketLabel(t *testing.T) {
-	require.Equal(t, `ALERT{C="d",a="B"}`, toGroupTicketLabel(alertmanager.KV{"a": "B", "C": "d"}))
+	require.Equal(t, `JIRALERT{9897cb21a3d1ba47d2aab501ce9bc60b74bf65e26658f8e34a7fc81705e6b6eadfe6ad8edfe7c68142b3fe10f2c89127bd85e5f3687fe6b9ff1eff4b3f71dd49}`, toGroupTicketLabel(alertmanager.KV{"a": "B", "C": "d"}, true))
+	require.Equal(t, `ALERT{C="d",a="B"}`, toGroupTicketLabel(alertmanager.KV{"a": "B", "C": "d"}, false))
 }
 
 type fakeJira struct {
@@ -202,7 +203,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "1",
 					Fields: &jira.IssueFields{
 						Project: jira.Project{Key: testReceiverConfig1().Project},
-						Labels:  []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Status: &jira.Status{
 							StatusCategory: jira.StatusCategory{Key: "NotDone"},
 						},
@@ -222,7 +223,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "1",
 					Fields: &jira.IssueFields{
 						Project:  jira.Project{Key: testReceiverConfig1().Project},
-						Labels:   []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:   []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Unknowns: tcontainer.MarshalMap{},
 						Summary:  "[FIRING:2] b d ",
 					},
@@ -244,7 +245,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "1",
 					Fields: &jira.IssueFields{
 						Project: jira.Project{Key: testReceiverConfig1().Project},
-						Labels:  []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Status: &jira.Status{
 							StatusCategory: jira.StatusCategory{Key: "NotDone"},
 						},
@@ -264,7 +265,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "1",
 					Fields: &jira.IssueFields{
 						Project:     jira.Project{Key: testReceiverConfig2().Project},
-						Labels:      []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:      []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Unknowns:    tcontainer.MarshalMap{},
 						Summary:     "[FIRING:2] b d ",
 						Description: "2",
@@ -287,7 +288,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "1",
 					Fields: &jira.IssueFields{
 						Project: jira.Project{Key: testReceiverConfig2().Project},
-						Labels:  []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Status: &jira.Status{
 							StatusCategory: jira.StatusCategory{Key: "NotDone"},
 						},
@@ -308,7 +309,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "1",
 					Fields: &jira.IssueFields{
 						Project:  jira.Project{Key: testReceiverConfig1().Project},
-						Labels:   []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:   []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Unknowns: tcontainer.MarshalMap{},
 						Summary:  "[FIRING:2] b d ",
 						Resolution: &jira.Resolution{
@@ -339,7 +340,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "1",
 					Fields: &jira.IssueFields{
 						Project: jira.Project{Key: testReceiverConfig1().Project},
-						Labels:  []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Status: &jira.Status{
 							StatusCategory: jira.StatusCategory{Key: testReceiverConfig1().ReopenState}, // Status reopened
 						},
@@ -363,7 +364,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "1",
 					Fields: &jira.IssueFields{
 						Project:  jira.Project{Key: testReceiverConfig1().Project},
-						Labels:   []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:   []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Unknowns: tcontainer.MarshalMap{},
 						Summary:  "[FIRING:2] b d ",
 						Resolution: &jira.Resolution{
@@ -394,7 +395,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "1",
 					Fields: &jira.IssueFields{
 						Project: jira.Project{Key: testReceiverConfig1().Project},
-						Labels:  []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Status: &jira.Status{
 							StatusCategory: jira.StatusCategory{Key: "done"},
 						},
@@ -418,7 +419,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "1",
 					Fields: &jira.IssueFields{
 						Project:  jira.Project{Key: testReceiverConfig1().Project},
-						Labels:   []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:   []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Unknowns: tcontainer.MarshalMap{},
 						Summary:  "[FIRING:2] b d ",
 						Resolution: &jira.Resolution{
@@ -449,7 +450,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "1",
 					Fields: &jira.IssueFields{
 						Project: jira.Project{Key: testReceiverConfig1().Project},
-						Labels:  []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Status: &jira.Status{
 							StatusCategory: jira.StatusCategory{Key: "done"},
 						},
@@ -468,7 +469,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					Key: "2",
 					Fields: &jira.IssueFields{
 						Project: jira.Project{Key: testReceiverConfig1().Project},
-						Labels:  []string{"ALERT{a=\"b\",c=\"d\"}"},
+						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Status: &jira.Status{
 							StatusCategory: jira.StatusCategory{Key: "NotDone"}, // Created
 						},
@@ -493,7 +494,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 				return testNowTime
 			}
 
-			_, err := receiver.Notify(tcase.inputAlert)
+			_, err := receiver.Notify(tcase.inputAlert, true)
 			require.NoError(t, err)
 			require.Equal(t, tcase.expectedJiraIssues, fakeJira.issuesByKey)
 		}); !ok {

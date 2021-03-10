@@ -32,6 +32,8 @@ Helper to list all merge commits between a release and HEAD: `git log --oneline 
 - Synchronize Makefile.common from prometheus/prometheus [#60](https://github.com/prometheus-community/jiralert/pull/60)
 - Synchronize common files from prometheus/prometheus [#63](https://github.com/prometheus-community/jiralert/pull/63)
 - Update common Prometheus files [#71](https://github.com/prometheus-community/jiralert/pull/71)
+- New opt-in label hashing behavior behind `-hash-jira-label` [#79](https://github.com/prometheus-community/jiralert/pull/79)
+  - **next release will drop the flag and promote this to default behavior**
 
 ### Fixed
 - Fix sample configuration file linting issues [#68](https://github.com/prometheus-community/jiralert/pull/68)
