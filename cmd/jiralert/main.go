@@ -14,9 +14,12 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"runtime"
@@ -102,11 +105,13 @@ func main() {
 		level.Debug(logger).Log("msg", "  matched receiver", "receiver", conf.Name)
 
 		// TODO: Consider reusing notifiers or just jira clients to reuse connections.
-		tp := jira.BasicAuthTransport{
-			Username: conf.User,
-			Password: string(conf.Password),
+		hc, err := createHTTPClient(conf)
+		if err != nil {
+			errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data, logger)
+			return
 		}
-		client, err := jira.NewClient(tp.Client(), conf.APIURL)
+
+		client, err := jira.NewClient(hc, conf.APIURL)
 		if err != nil {
 			errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data, logger)
 			return
@@ -186,4 +191,95 @@ func setupLogger(lvl string, fmt string) (logger log.Logger) {
 	logger = level.NewFilter(logger, filter)
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 	return
+}
+
+// createHTTPClient returns a jira.BasicAuthTransport or http Client, depending
+// on CAFile/client certificate options
+func createHTTPClient(conf *config.ReceiverConfig) (*http.Client, error) {
+
+	// if CAFile, CertFile or KeyFile aren't specified, return BasicAuthTransport client
+	if len(conf.CAFile) == 0 && len(conf.CertFile) == 0 && len(conf.KeyFile) == 0 {
+		tp := jira.BasicAuthTransport{
+			Username: conf.User,
+			Password: string(conf.Password),
+		}
+		return tp.Client(), nil
+	}
+
+	tlsConfig, err := newTLSConfig(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	hc := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+
+	return hc, nil
+}
+
+func newTLSConfig(conf *config.ReceiverConfig) (*tls.Config, error) {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: conf.InsecureSkipVerify,
+		Renegotiation:      tls.RenegotiateOnceAsClient,
+	}
+
+	// Read in a CA certificate, if one is specified.
+	if len(conf.CAFile) > 0 {
+		b, err := readCAFile(conf.CAFile)
+		if err != nil {
+			return nil, err
+		}
+		if !updateRootCA(tlsConfig, b) {
+			return nil, fmt.Errorf("unable to use specified CA certificate %s", conf.CAFile)
+		}
+	}
+
+	// Configure TLS with a client certificate, if certificate and key files are specified.
+	if len(conf.CertFile) > 0 && len(conf.KeyFile) == 0 {
+		return nil, fmt.Errorf("client certificate file %q specified without client key file", conf.CertFile)
+	}
+
+	if len(conf.KeyFile) > 0 && len(conf.CertFile) == 0 {
+		return nil, fmt.Errorf("client key file %q specified without client certificate file", conf.KeyFile)
+	}
+
+	if len(conf.CertFile) > 0 && len(conf.KeyFile) > 0 {
+		cert, err := getClientCertificate(conf)
+		if err != nil {
+			return nil, err
+		}
+		tlsConfig.Certificates = []tls.Certificate{*cert}
+	}
+
+	return tlsConfig, nil
+}
+
+// readCAFile reads the CA certificate file from disk.
+func readCAFile(f string) ([]byte, error) {
+	data, err := ioutil.ReadFile(f)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load specified CA certificate %s: %s", f, err)
+	}
+	return data, nil
+}
+
+func updateRootCA(cfg *tls.Config, b []byte) bool {
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM(b) {
+		return false
+	}
+	cfg.RootCAs = caCertPool
+	return true
+}
+
+// getClientCertificate reads the pair of client certificate and key from disk and returns a tls.Certificate.
+func getClientCertificate(c *config.ReceiverConfig) (*tls.Certificate, error) {
+	cert, err := tls.LoadX509KeyPair(c.CertFile, c.KeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("unable to use specified client certificate (%s) and key (%s): %s", c.CertFile, c.KeyFile, err)
+	}
+	return &cert, nil
 }

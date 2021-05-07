@@ -94,9 +94,13 @@ type ReceiverConfig struct {
 	Name string `yaml:"name" json:"name"`
 
 	// API access fields
-	APIURL   string `yaml:"api_url" json:"api_url"`
-	User     string `yaml:"user" json:"user"`
-	Password Secret `yaml:"password" json:"password"`
+	APIURL             string `yaml:"api_url" json:"api_url"`
+	User               string `yaml:"user" json:"user"`
+	Password           Secret `yaml:"password" json:"password"`
+	CAFile             string `yaml:"ca_file" json:"ca_file"`
+	CertFile           string `yaml:"cert_file" json:"cert_file"`
+	KeyFile            string `yaml:"key_file" json:"key_file"`
+	InsecureSkipVerify bool   `yaml:"insecure_skip_verify" json:"insecure_skip_verify"`
 
 	// Required issue fields
 	Project     string `yaml:"project" json:"project"`
@@ -178,6 +182,9 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		if _, err := url.Parse(rc.APIURL); err != nil {
 			return fmt.Errorf("invalid api_url %q in receiver %q: %s", rc.APIURL, rc.Name, err)
 		}
+		// Username and password aren't necessarily required if using a client
+		// certificate for authentication, but they will (usually) be ignored in
+		// that situation, so leaving them as required.
 		if rc.User == "" {
 			if c.Defaults.User == "" {
 				return fmt.Errorf("missing user in receiver %q", rc.Name)
@@ -189,6 +196,26 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 				return fmt.Errorf("missing password in receiver %q", rc.Name)
 			}
 			rc.Password = c.Defaults.Password
+		}
+
+		// We want to be able to override CAFile/KeyFile/CertFile in each receiver
+		// even if there is a default value set. Setting it to a blank string will
+		// cause the existing logic to just fall back to the default, so we use
+		// "none" to indicate no value set.
+		if rc.CAFile == "none" {
+			rc.CAFile = ""
+		} else if rc.CAFile == "" && c.Defaults.CAFile != "" {
+			rc.CAFile = c.Defaults.CAFile
+		}
+		if rc.CertFile == "none" {
+			rc.CertFile = ""
+		} else if rc.CertFile == "" && c.Defaults.CertFile != "" {
+			rc.CertFile = c.Defaults.CertFile
+		}
+		if rc.KeyFile == "none" {
+			rc.KeyFile = ""
+		} else if rc.KeyFile == "" && c.Defaults.KeyFile != "" {
+			rc.KeyFile = c.Defaults.KeyFile
 		}
 
 		// Check required issue fields
