@@ -2,8 +2,7 @@
 [![Build Status](https://github.com/prometheus-community/jiralert/workflows/test/badge.svg?branch=master)](https://github.com/prometheus-community/jiralert/actions?query=workflow%3Atest) 
 [![Go Report Card](https://goreportcard.com/badge/github.com/prometheus-community/jiralert)](https://goreportcard.com/report/github.com/prometheus-community/jiralert) 
 [![GoDoc](https://godoc.org/github.com/prometheus-community/jiralert?status.svg)](https://godoc.org/github.com/prometheus-community/jiralert)
-[![Slack](https://img.shields.io/badge/join%20slack-%23jiralert-brightgreen.svg)](https://join.slack.com/t/improbable-eng/shared_invite/enQtMzQ1ODcyMzQ5MjM4LWY5ZWZmNGM2ODc5MmViNmQ3ZTA3ZTY3NzQwOTBlMTkzZmIxZTIxODk0OWU3YjZhNWVlNDU3MDlkZGViZjhkMjc)
-
+[![Slack](https://img.shields.io/badge/join%20slack-%23jiralert-brightgreen.svg)](https://slack.cncf.io/)
 [Prometheus Alertmanager](https://github.com/prometheus/alertmanager) webhook receiver for [JIRA](https://www.atlassian.com/software/jira).
 
 ## Overview
