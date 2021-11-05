@@ -1,5 +1,6 @@
 /.project
 /.idea
+/*.iml
 /release
 /jiralert
 /jiralert*.tar.gz
