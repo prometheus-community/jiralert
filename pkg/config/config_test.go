@@ -29,6 +29,7 @@ defaults:
   api_url: https://jiralert.atlassian.net
   user: jiralert
   password: 'JIRAlert'
+  session_cookie: false
 
   # The type of JIRA issue to create. Required.
   issue_type: Bug
@@ -60,7 +61,7 @@ receivers:
     # Overrides default.
     issue_type: Task
     # JIRA components. Optional.
-    components: [ 'Operations' ]
+    components: ['Operations']
     # Standard or custom field values to set on created issue. Optional.
     #
     # See https://developer.atlassian.com/server/jira/platform/jira-rest-api-examples/#setting-custom-field-data-for-other-field-types for further examples.
@@ -68,9 +69,9 @@ receivers:
       # TextField
       customfield_10001: "Random text"
       # SelectList
-      customfield_10002: { "value": "red" }
+      customfield_10002: {"value": "red"}
       # MultiSelect
-      customfield_10003: [{"value": "red" }, {"value": "blue" }, {"value": "green" }]
+      customfield_10003: [{"value": "red"}, {"value": "blue"}, {"value": "green"}]
 
 # File containing template definitions. Required.
 template: jiralert.tmpl

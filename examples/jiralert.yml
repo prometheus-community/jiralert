@@ -5,6 +5,7 @@ defaults:
   api_url: https://jiralert.atlassian.net
   user: jiralert
   password: 'JIRAlert'
+  session_cookie: false
 
   # The type of JIRA issue to create. Required.
   issue_type: Bug

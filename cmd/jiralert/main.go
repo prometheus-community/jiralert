@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/pkg/errors"
 	"net/http"
 	"os"
 	"runtime"
@@ -83,6 +84,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	// We re-use the HTTP client here. Otherwise, in case of cookie-based auth, we might get banned by JIRA for creating
+	// many new sessions.
+	var jiraHTTPClient = createHTTPClient(config, logger)
+
 	http.HandleFunc("/alert", func(w http.ResponseWriter, req *http.Request) {
 		level.Debug(logger).Log("msg", "handling /alert webhook request")
 		defer func() { _ = req.Body.Close() }()
@@ -101,12 +106,7 @@ func main() {
 		}
 		level.Debug(logger).Log("msg", "  matched receiver", "receiver", conf.Name)
 
-		// TODO: Consider reusing notifiers or just jira clients to reuse connections.
-		tp := jira.BasicAuthTransport{
-			Username: conf.User,
-			Password: string(conf.Password),
-		}
-		client, err := jira.NewClient(tp.Client(), conf.APIURL)
+		client, err := jira.NewClient(jiraHTTPClient, conf.APIURL)
 		if err != nil {
 			errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data, logger)
 			return
@@ -114,12 +114,22 @@ func main() {
 
 		if retry, err := notify.NewReceiver(logger, conf, tmpl, client.Issue).Notify(&data, *hashJiraLabel); err != nil {
 			var status int
+
+			if errors.Is(err, notify.ErrUnauthorized) && config.Defaults.SessionCookie {
+				level.Info(logger).Log("msg", "refreshing session cookie")
+				jiraHTTPClient = createHTTPClient(config, logger)
+
+				// Next time, we start with a fresh session!
+				retry = true
+			}
+
 			if retry {
 				// Instruct Alertmanager to retry.
 				status = http.StatusServiceUnavailable
 			} else {
 				status = http.StatusInternalServerError
 			}
+
 			errorHandler(w, status, err, conf.Name, &data, logger)
 			return
 		}
@@ -186,4 +196,23 @@ func setupLogger(lvl string, fmt string) (logger log.Logger) {
 	logger = level.NewFilter(logger, filter)
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 	return
+}
+
+func createHTTPClient(config *config.Config, logger log.Logger) *http.Client {
+	if config.Defaults.SessionCookie {
+		level.Debug(logger).Log("msg", "creating new HTTP client using cookie auth")
+		tp := jira.CookieAuthTransport{
+			Username: config.Defaults.User,
+			Password: string(config.Defaults.Password),
+			AuthURL:  config.Defaults.APIURL + "/rest/auth/1/session",
+		}
+		return tp.Client()
+	}
+
+	level.Debug(logger).Log("msg", "creating new HTTP client using basic auth")
+	tp := jira.BasicAuthTransport{
+		Username: config.Defaults.User,
+		Password: string(config.Defaults.Password),
+	}
+	return tp.Client()
 }

@@ -94,9 +94,10 @@ type ReceiverConfig struct {
 	Name string `yaml:"name" json:"name"`
 
 	// API access fields
-	APIURL   string `yaml:"api_url" json:"api_url"`
-	User     string `yaml:"user" json:"user"`
-	Password Secret `yaml:"password" json:"password"`
+	APIURL        string `yaml:"api_url" json:"api_url"`
+	User          string `yaml:"user" json:"user"`
+	Password      Secret `yaml:"password" json:"password"`
+	SessionCookie bool   `yaml:"session_cookie" json:"session_cookie"`
 
 	// Required issue fields
 	Project     string `yaml:"project" json:"project"`

@@ -53,6 +53,8 @@ type Receiver struct {
 	timeNow func() time.Time
 }
 
+var ErrUnauthorized = errors.New("JIRA returned HTTP status 401 Unauthorized")
+
 // NewReceiver creates a Receiver using the provided configuration, template and jiraIssueService.
 func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Template, client jiraIssueService) *Receiver {
 	return &Receiver{logger: logger, conf: c, tmpl: t, client: client, timeNow: time.Now}
@@ -385,8 +387,16 @@ func handleJiraErrResponse(api string, resp *jira.Response, err error, logger lo
 	if resp != nil && resp.StatusCode/100 != 2 {
 		retry := resp.StatusCode == 500 || resp.StatusCode == 503
 		body, _ := ioutil.ReadAll(resp.Body)
-		// go-jira error message is not particularly helpful, replace it
-		return retry, errors.Errorf("JIRA request %s returned status %s, body %q", resp.Request.URL, resp.Status, string(body))
+
+		var responseErr error
+		if resp.StatusCode == 401 {
+			responseErr = ErrUnauthorized
+		} else {
+			// go-jira error message is not particularly helpful, replace it
+			responseErr = errors.Errorf("JIRA request %s returned status %s, body %q", resp.Request.URL, resp.Status, string(body))
+		}
+
+		return retry, responseErr
 	}
 	return false, errors.Wrapf(err, "JIRA request %s failed", api)
 }
