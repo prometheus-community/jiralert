@@ -102,11 +102,24 @@ func main() {
 		level.Debug(logger).Log("msg", "  matched receiver", "receiver", conf.Name)
 
 		// TODO: Consider reusing notifiers or just jira clients to reuse connections.
-		tp := jira.BasicAuthTransport{
-			Username: conf.User,
-			Password: string(conf.Password),
+		var client *jira.Client
+		var err error
+		if conf.User != "" && conf.Password != "" {
+			tp := jira.BasicAuthTransport{
+				Username: conf.User,
+				Password: string(conf.Password),
+			}
+			client, err = jira.NewClient(tp.Client(), conf.APIURL)
+		} else if conf.PersonalAccessToken != "" {
+			tp := jira.PATAuthTransport{
+				Token: string(conf.PersonalAccessToken),
+			}
+			client, err = jira.NewClient(tp.Client(), conf.APIURL)
+		} else {
+			// Config should not allow us to get here, but just in case...
+			errorHandler(w, http.StatusInternalServerError, fmt.Errorf("missing JIRA auth config"), conf.Name, &data, logger)
 		}
-		client, err := jira.NewClient(tp.Client(), conf.APIURL)
+
 		if err != nil {
 			errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data, logger)
 			return

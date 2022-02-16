@@ -88,15 +88,16 @@ func resolveFilepaths(baseDir string, cfg *Config, logger log.Logger) {
 	cfg.Template = join(cfg.Template)
 }
 
-// ReceiverConfig is the configuration for one receiver. It has a unique name and includes API access fields (URL, user
-// and password) and issue fields (required -- e.g. project, issue type -- and optional -- e.g. priority).
+// ReceiverConfig is the configuration for one receiver. It has a unique name and includes API access fields (url and
+// auth) and issue fields (required -- e.g. project, issue type -- and optional -- e.g. priority).
 type ReceiverConfig struct {
 	Name string `yaml:"name" json:"name"`
 
 	// API access fields
-	APIURL   string `yaml:"api_url" json:"api_url"`
-	User     string `yaml:"user" json:"user"`
-	Password Secret `yaml:"password" json:"password"`
+	APIURL              string `yaml:"api_url" json:"api_url"`
+	User                string `yaml:"user" json:"user"`
+	Password            Secret `yaml:"password" json:"password"`
+	PersonalAccessToken Secret `yaml:"personal_access_token" json:"personal_access_token"`
 
 	// Required issue fields
 	Project        string    `yaml:"project" json:"project"`
@@ -166,6 +167,10 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
+	if c.Defaults.User != "" && c.Defaults.Password != "" && c.Defaults.PersonalAccessToken != "" {
+		return fmt.Errorf("Bad auth config in defaults section: user/password and PAT authentication are mutually exclusive")
+	}
+
 	for _, rc := range c.Receivers {
 		if rc.Name == "" {
 			return fmt.Errorf("missing name for receiver %+v", rc)
@@ -181,17 +186,20 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		if _, err := url.Parse(rc.APIURL); err != nil {
 			return fmt.Errorf("invalid api_url %q in receiver %q: %s", rc.APIURL, rc.Name, err)
 		}
-		if rc.User == "" {
-			if c.Defaults.User == "" {
-				return fmt.Errorf("missing user in receiver %q", rc.Name)
-			}
-			rc.User = c.Defaults.User
+
+		if rc.User != "" && rc.Password != "" && rc.PersonalAccessToken != "" {
+			return fmt.Errorf("Bad auth config in receiver %q: user/password and PAT authentication are mutually exclusive", rc.Name)
 		}
-		if rc.Password == "" {
-			if c.Defaults.Password == "" {
-				return fmt.Errorf("missing password in receiver %q", rc.Name)
+
+		if (rc.User == "" || rc.Password == "") && rc.PersonalAccessToken == "" {
+			if c.Defaults.User != "" && c.Defaults.Password != "" {
+				rc.User = c.Defaults.User
+				rc.Password = c.Defaults.Password
+			} else if c.Defaults.PersonalAccessToken != "" {
+				rc.PersonalAccessToken = c.Defaults.PersonalAccessToken
+			} else {
+				return fmt.Errorf("missing authentication in receiver %q", rc.Name)
 			}
-			rc.Password = c.Defaults.Password
 		}
 
 		// Check required issue fields
