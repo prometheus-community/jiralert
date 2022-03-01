@@ -21,9 +21,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/andygrunwald/go-jira"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	jira "github.com/andygrunwald/go-jira"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus-community/jiralert/pkg/alertmanager"
 	"github.com/prometheus-community/jiralert/pkg/config"

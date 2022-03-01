@@ -21,8 +21,8 @@ import (
 
 	"github.com/trivago/tgo/tcontainer"
 
-	"github.com/andygrunwald/go-jira"
-	"github.com/go-kit/kit/log"
+	jira "github.com/andygrunwald/go-jira"
+	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus-community/jiralert/pkg/alertmanager"
 	"github.com/prometheus-community/jiralert/pkg/config"
