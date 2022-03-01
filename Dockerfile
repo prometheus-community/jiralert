@@ -1,4 +1,4 @@
-FROM golang:1.14 AS builder
+FROM golang:1.15 AS builder
 WORKDIR /go/src/github.com/prometheus-community/jiralert
 COPY . /go/src/github.com/prometheus-community/jiralert
 RUN GO111MODULE=on GOBIN=/tmp/bin make
