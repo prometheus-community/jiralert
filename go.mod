@@ -3,11 +3,9 @@ module github.com/prometheus-community/jiralert
 go 1.15
 
 require (
-	github.com/andygrunwald/go-jira v1.11.2-0.20200514151831-146229d2ab58
-	github.com/fatih/structs v1.1.0 // indirect
+	github.com/andygrunwald/go-jira v1.15.1
 	github.com/go-kit/kit v0.10.0
 	github.com/golang/protobuf v1.4.1 // indirect
-	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.6.0
 	github.com/prometheus/common v0.10.0 // indirect
