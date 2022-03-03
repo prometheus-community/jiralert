@@ -168,7 +168,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	if c.Defaults.User != "" && c.Defaults.Password != "" && c.Defaults.PersonalAccessToken != "" {
-		return fmt.Errorf("Bad auth config in defaults section: user/password and PAT authentication are mutually exclusive")
+		return fmt.Errorf("bad auth config in defaults section: user/password and PAT authentication are mutually exclusive")
 	}
 
 	for _, rc := range c.Receivers {
@@ -188,7 +188,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		}
 
 		if rc.User != "" && rc.Password != "" && rc.PersonalAccessToken != "" {
-			return fmt.Errorf("Bad auth config in receiver %q: user/password and PAT authentication are mutually exclusive", rc.Name)
+			return fmt.Errorf("bad auth config in receiver %q: user/password and PAT authentication are mutually exclusive", rc.Name)
 		}
 
 		if (rc.User == "" || rc.Password == "") && rc.PersonalAccessToken == "" {

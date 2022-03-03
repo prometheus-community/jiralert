@@ -94,6 +94,7 @@ func TestLoadFile(t *testing.T) {
 }
 
 // returns mandatory receiver fields to be used creating test config structs
+// it does not include PAT auth, those tests will be created separately
 func mandatoryReceiverFields() []string {
 	return []string{"Name", "APIURL", "User", "Password", "Project",
 		"IssueType", "Summary", "ReopenState", "ReopenDuration"}
@@ -101,15 +102,16 @@ func mandatoryReceiverFields() []string {
 
 // A test version of the ReceiverConfig struct to create test yaml fixtures
 type receiverTestConfig struct {
-	Name           string `yaml:"name,omitempty"`
-	APIURL         string `yaml:"api_url,omitempty"`
-	User           string `yaml:"user,omitempty"`
-	Password       string `yaml:"password,omitempty"`
-	Project        string `yaml:"project,omitempty"`
-	IssueType      string `yaml:"issue_type,omitempty"`
-	Summary        string `yaml:"summary,omitempty"`
-	ReopenState    string `yaml:"reopen_state,omitempty"`
-	ReopenDuration string `yaml:"reopen_duration,omitempty"`
+	Name                string `yaml:"name,omitempty"`
+	APIURL              string `yaml:"api_url,omitempty"`
+	User                string `yaml:"user,omitempty"`
+	Password            string `yaml:"password,omitempty"`
+	PersonalAccessToken string `yaml:"personal_access_token,omitempty"`
+	Project             string `yaml:"project,omitempty"`
+	IssueType           string `yaml:"issue_type,omitempty"`
+	Summary             string `yaml:"summary,omitempty"`
+	ReopenState         string `yaml:"reopen_state,omitempty"`
+	ReopenDuration      string `yaml:"reopen_duration,omitempty"`
 
 	Priority          string `yaml:"priority,omitempty"`
 	Description       string `yaml:"description,omitempty"`
