@@ -99,10 +99,11 @@ type ReceiverConfig struct {
 	Password Secret `yaml:"password" json:"password"`
 
 	// Required issue fields
-	Project     string `yaml:"project" json:"project"`
-	IssueType   string `yaml:"issue_type" json:"issue_type"`
-	Summary     string `yaml:"summary" json:"summary"`
-	ReopenState string `yaml:"reopen_state" json:"reopen_state"`
+	Project        string    `yaml:"project" json:"project"`
+	IssueType      string    `yaml:"issue_type" json:"issue_type"`
+	Summary        string    `yaml:"summary" json:"summary"`
+	ReopenState    string    `yaml:"reopen_state" json:"reopen_state"`
+	ReopenDuration *Duration `yaml:"reopen_duration" json:"reopen_duration"`
 
 	// Optional issue fields
 	Priority          string                 `yaml:"priority" json:"priority"`
@@ -110,7 +111,6 @@ type ReceiverConfig struct {
 	WontFixResolution string                 `yaml:"wont_fix_resolution" json:"wont_fix_resolution"`
 	Fields            map[string]interface{} `yaml:"fields" json:"fields"`
 	Components        []string               `yaml:"components" json:"components"`
-	ReopenDuration    *Duration              `yaml:"reopen_duration" json:"reopen_duration"`
 
 	// Label copy settings
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
@@ -158,6 +158,9 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// We want to set c to the defaults and then overwrite it with the input.
 	// To make unmarshal fill the plain data struct rather than calling UnmarshalYAML
 	// again, we have to hide it using a type indirection.
+
+	// TODO: Handle the empty defaults case
+
 	type plain Config
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err
