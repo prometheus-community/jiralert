@@ -93,13 +93,6 @@ func TestLoadFile(t *testing.T) {
 
 }
 
-// returns mandatory receiver fields to be used creating test config structs
-// it does not include PAT auth, those tests will be created separately
-func mandatoryReceiverFields() []string {
-	return []string{"Name", "APIURL", "User", "Password", "Project",
-		"IssueType", "Summary", "ReopenState", "ReopenDuration"}
-}
-
 // A test version of the ReceiverConfig struct to create test yaml fixtures
 type receiverTestConfig struct {
 	Name                string `yaml:"name,omitempty"`
@@ -129,6 +122,220 @@ type testConfig struct {
 	Receivers []*receiverTestConfig `yaml:"receivers,omitempty"`
 	Template  string                `yaml:"template,omitempty"`
 }
+
+// Required Config keys tests
+func TestMissingConfigKeys(t *testing.T) {
+	defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), []string{})
+	receiverConfig := newReceiverTestConfig([]string{"Name"}, []string{})
+
+	var config testConfig
+
+	// No receivers
+	config = testConfig{Defaults: defaultsConfig, Receivers: []*receiverTestConfig{}, Template: "jiralert.tmpl"}
+	configErrorTestRunner(t, config, "no receivers defined")
+
+	// No template
+	config = testConfig{Defaults: defaultsConfig, Receivers: []*receiverTestConfig{receiverConfig}}
+	configErrorTestRunner(t, config, "missing template file")
+}
+
+// Tests regarding mandatory keys
+// No tests for auth keys here. They will be handled separately
+func TestRequiredReceiverConfigKeys(t *testing.T) {
+	type testCase struct {
+		missingField string
+		errorMessage string
+	}
+
+	// We'll remove one key at a time and check that the error is the expected one
+	testTable := []testCase{
+		{"Name", "missing name for receiver"},
+		{"APIURL", `missing api_url in receiver "Name"`},
+		{"Project", `missing project in receiver "Name"`},
+		{"IssueType", `missing issue_type in receiver "Name"`},
+		{"Summary", `missing summary in receiver "Name"`},
+		{"ReopenState", `missing reopen_state in receiver "Name"`},
+		{"ReopenDuration", `missing reopen_duration in receiver "Name"`},
+	}
+
+	mandatory := mandatoryReceiverFields()
+	for _, test := range testTable {
+		fields := removeFromStrSlice(mandatory, test.missingField)
+
+		// non-empty defaults as we don't handle the empty defaults case yet
+		defaultsConfig := newReceiverTestConfig([]string{}, []string{"Priority"})
+		receiverConfig := newReceiverTestConfig(fields, []string{})
+		config := testConfig{
+			Defaults:  defaultsConfig,
+			Receivers: []*receiverTestConfig{receiverConfig},
+			Template:  "jiratemplate.tmpl",
+		}
+		configErrorTestRunner(t, config, test.errorMessage)
+	}
+
+}
+
+// Auth keys error scenarios
+func TestAuthKeysErrors(t *testing.T) {
+	type testCase struct {
+		receiverTestConfigMandatoryFields []string
+		errorMessage                      string
+	}
+
+	mandatory := mandatoryReceiverFields()
+
+	// Test cases
+	// * missing user
+	// * missing password
+	// * specifying user/password and PAT auth
+	testTable := []testCase{
+		{
+			removeFromStrSlice(mandatory, "User"),
+			`missing authentication in receiver "Name"`,
+		},
+		{
+			removeFromStrSlice(mandatory, "Password"),
+			`missing authentication in receiver "Name"`,
+		},
+		{
+			append(mandatory, "PersonalAccessToken"),
+			"bad auth config in defaults section: user/password and PAT authentication are mutually exclusive",
+		},
+	}
+
+	minimalReceiverTestConfig := newReceiverTestConfig([]string{"Name"}, []string{})
+	for _, test := range testTable {
+		defaultsConfig := newReceiverTestConfig(test.receiverTestConfigMandatoryFields, []string{})
+		config := testConfig{
+			Defaults:  defaultsConfig,
+			Receivers: []*receiverTestConfig{minimalReceiverTestConfig},
+			Template:  "jiralert.tmpl",
+		}
+
+		configErrorTestRunner(t, config, test.errorMessage)
+	}
+}
+
+// These tests want to make sure that receiver auth always overrides defaults auth
+func TestAuthKeysOverrides(t *testing.T) {
+	type testCase struct {
+		userOverrideValue     string
+		passwordOverrideValue string
+		patOverrideValue      string   // Personal Access Token override
+		defaultFields         []string // fields to build the config defaults
+	}
+
+	defaultsWithUserPassword := mandatoryReceiverFields()
+
+	defaultsWithPAT := []string{"PersonalAccessToken"}
+	for _, field := range defaultsWithUserPassword {
+		if field == "User" || field == "Password" {
+			continue
+		}
+		defaultsWithPAT = append(defaultsWithPAT, field)
+	}
+
+	// Test cases
+	// * user/password receiver overrides user/password default
+	// * PAT receiver overrides user/password default
+	// * PAT receiver overrides PAT default
+	// * user/password receiver overrides PAT default
+	testTable := []testCase{
+		{"jira_user", "jira_password", "", defaultsWithUserPassword},
+		{"", "", "jira_personal_access_token", defaultsWithUserPassword},
+		{"jira_user", "jira_password", "", defaultsWithPAT},
+		{"", "", "jira_personal_access_token", defaultsWithPAT},
+	}
+
+	for _, test := range testTable {
+		defaultsConfig := newReceiverTestConfig(test.defaultFields, []string{})
+		receiverConfig := newReceiverTestConfig([]string{"Name"}, []string{})
+		if test.userOverrideValue != "" {
+			receiverConfig.User = test.userOverrideValue
+		}
+		if test.passwordOverrideValue != "" {
+			receiverConfig.Password = test.passwordOverrideValue
+		}
+		if test.patOverrideValue != "" {
+			receiverConfig.PersonalAccessToken = test.patOverrideValue
+		}
+
+		config := testConfig{
+			Defaults:  defaultsConfig,
+			Receivers: []*receiverTestConfig{receiverConfig},
+			Template:  "jiralert.tmpl",
+		}
+
+		yamlConfig, err := yaml.Marshal(&config)
+		require.NoError(t, err)
+
+		cfg, err := Load(string(yamlConfig))
+		require.NoError(t, err)
+
+		receiver := cfg.Receivers[0]
+		require.Equal(t, receiver.User, test.userOverrideValue)
+		require.Equal(t, receiver.Password, Secret(test.passwordOverrideValue))
+		require.Equal(t, receiver.PersonalAccessToken, Secret(test.patOverrideValue))
+	}
+}
+
+// Tests regarding yaml keys overriden in the receiver config
+// No tests for auth keys here. They will be handled separately
+func TestReceiverOverrides(t *testing.T) {
+	type testCase struct {
+		overrideField string
+		overrideValue interface{}
+		expectedValue interface{}
+	}
+
+	fifteenHoursToDuration, err := ParseDuration("15h")
+	require.NoError(t, err)
+
+	// We'll override one key at a time and check the value in the receiver
+	testTable := []testCase{
+		{"APIURL", `https://jira.redhat.com`, `https://jira.redhat.com`},
+		{"Project", "APPSRE", "APPSRE"},
+		{"IssueType", "Task", "Task"},
+		{"Summary", "A nice summary", "A nice summary"},
+		{"ReopenState", "To Do", "To Do"},
+		{"ReopenDuration", "15h", &fifteenHoursToDuration},
+		{"Priority", "Critical", "Critical"},
+		{"Description", "A nice description", "A nice description"},
+		{"WontFixResolution", "Won't Fix", "Won't Fix"},
+		{"AddGroupLabels", false, false},
+	}
+
+	for _, test := range testTable {
+		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels"}
+		defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), optionalFields)
+		receiverConfig := newReceiverTestConfig([]string{"Name"}, optionalFields)
+
+		reflect.ValueOf(receiverConfig).Elem().FieldByName(test.overrideField).
+			Set(reflect.ValueOf(test.overrideValue))
+
+		config := testConfig{
+			Defaults:  defaultsConfig,
+			Receivers: []*receiverTestConfig{receiverConfig},
+			Template:  "jiralert.tmpl",
+		}
+
+		yamlConfig, err := yaml.Marshal(&config)
+		require.NoError(t, err)
+
+		cfg, err := Load(string(yamlConfig))
+		require.NoError(t, err)
+
+		receiver := cfg.Receivers[0]
+		configValue := reflect.ValueOf(receiver).Elem().FieldByName(test.overrideField).Interface()
+		require.Equal(t, configValue, test.expectedValue)
+	}
+
+}
+
+// TODO(bwplotka, rporres): Add more tests
+//   * Tests on optional keys
+//   * Tests on unknown keys
+//   * Tests on Duration
 
 // create a receiverTestConfig struct with default values
 func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestConfig {
@@ -161,29 +368,9 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 	return &r
 }
 
-// Required Config keys tests
-func TestMissingConfigKeys(t *testing.T) {
-	defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), []string{})
-	receiverConfig := newReceiverTestConfig([]string{"Name"}, []string{})
-	template := "jiralert.tmpl"
-
-	var config testConfig
-
-	// No receivers
-	config = testConfig{Defaults: defaultsConfig, Receivers: []*receiverTestConfig{}, Template: template}
-	configErrorTestRunner(t, config, "no receivers defined")
-
-	// No template
-	config = testConfig{Defaults: defaultsConfig, Receivers: []*receiverTestConfig{receiverConfig}}
-	configErrorTestRunner(t, config, "missing template file")
-}
-
-// Creates a yaml from testConfig and checks the errors while loading it
+// Creates a yaml from testConfig, Loads it checks the errors are the expected ones
 func configErrorTestRunner(t *testing.T, config testConfig, errorMessage string) {
-	var yamlConfig []byte
-	var err error
-
-	yamlConfig, err = yaml.Marshal(&config)
+	yamlConfig, err := yaml.Marshal(&config)
 	require.NoError(t, err)
 
 	_, err = Load(string(yamlConfig))
@@ -191,104 +378,21 @@ func configErrorTestRunner(t *testing.T, config testConfig, errorMessage string)
 	require.Contains(t, err.Error(), errorMessage)
 }
 
-// Tests regarding mandatory keys
-func TestRequiredReceiverConfigKeys(t *testing.T) {
-	type testCase struct {
-		missingField string
-		errorMessage string
-	}
-
-	testTable := []testCase{
-		{"Name", "missing name for receiver"},
-		{"APIURL", `missing api_url in receiver "Name"`},
-		{"User", `missing user in receiver "Name"`},
-		{"Password", `missing password in receiver "Name"`},
-		{"Project", `missing project in receiver "Name"`},
-		{"IssueType", `missing issue_type in receiver "Name"`},
-		{"Summary", `missing summary in receiver "Name"`},
-		{"ReopenState", `missing reopen_state in receiver "Name"`},
-		{"ReopenDuration", `missing reopen_duration in receiver "Name"`},
-	}
-
-	for _, test := range testTable {
-		var fields []string
-		for _, value := range mandatoryReceiverFields() {
-			if value != test.missingField {
-				fields = append(fields, value)
-			}
+// returns a new slice that has the element removed
+func removeFromStrSlice(strSlice []string, element string) []string {
+	var newStrSlice []string
+	for _, value := range strSlice {
+		if value != element {
+			newStrSlice = append(newStrSlice, value)
 		}
-
-		// non-empty defaults as we don't handle the empty defaults case yet
-		defaultsConfig := newReceiverTestConfig([]string{}, []string{"Priority"})
-		receiverConfig := newReceiverTestConfig(fields, []string{})
-		config := testConfig{
-			Defaults:  defaultsConfig,
-			Receivers: []*receiverTestConfig{receiverConfig},
-			Template:  "jiratemplate.tmpl",
-		}
-		configErrorTestRunner(t, config, test.errorMessage)
 	}
 
+	return newStrSlice
 }
 
-// Tests regarding yaml keys overriden in the receiver config
-func TestReceiverOverrides(t *testing.T) {
-	type testCase struct {
-		overrideField string
-		overrideValue interface{}
-		expectedValue interface{}
-	}
-
-	fifteenHoursToDuration, err := ParseDuration("15h")
-	require.NoError(t, err)
-
-	testTable := []testCase{
-		{"APIURL", `https://jira.redhat.com`, `https://jira.redhat.com`},
-		{"User", "jirauser", "jirauser"},
-		{"Password", "jirapassword", Secret("jirapassword")},
-		{"Project", "APPSRE", "APPSRE"},
-		{"IssueType", "Task", "Task"},
-		{"Summary", "A nice summary", "A nice summary"},
-		{"ReopenState", "To Do", "To Do"},
-		{"ReopenDuration", "15h", &fifteenHoursToDuration},
-		{"Priority", "Critical", "Critical"},
-		{"Description", "A nice description", "A nice description"},
-		{"WontFixResolution", "Won't Fix", "Won't Fix"},
-		{"AddGroupLabels", false, false},
-	}
-
-	for _, test := range testTable {
-		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels"}
-		defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), optionalFields)
-		receiverConfig := newReceiverTestConfig([]string{"Name"}, optionalFields)
-
-		reflect.ValueOf(receiverConfig).Elem().FieldByName(test.overrideField).
-			Set(reflect.ValueOf(test.overrideValue))
-
-		config := testConfig{
-			Defaults:  defaultsConfig,
-			Receivers: []*receiverTestConfig{receiverConfig},
-			Template:  "jiralert.tmpl",
-		}
-
-		var yamlConfig []byte
-		var err error
-		var cfg *Config
-
-		yamlConfig, err = yaml.Marshal(&config)
-		require.NoError(t, err)
-
-		cfg, err = Load(string(yamlConfig))
-		require.NoError(t, err)
-
-		receiver := cfg.Receivers[0]
-		configValue := reflect.ValueOf(receiver).Elem().FieldByName(test.overrideField).Interface()
-
-		require.Equal(t, configValue, test.expectedValue)
-	}
-
+// returns mandatory receiver fields to be used creating test config structs
+// it does not include PAT auth, those tests will be created separately
+func mandatoryReceiverFields() []string {
+	return []string{"Name", "APIURL", "User", "Password", "Project",
+		"IssueType", "Summary", "ReopenState", "ReopenDuration"}
 }
-
-// TODO(bwplotka, rporres): Add more tests
-//   * Tests on optional keys
-//   * Tests on unknown keys
