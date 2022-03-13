@@ -176,7 +176,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			return fmt.Errorf("missing name for receiver %+v", rc)
 		}
 
-		// Check API access fields
+		// Check API access fields.
 		if rc.APIURL == "" {
 			if c.Defaults.APIURL == "" {
 				return fmt.Errorf("missing api_url in receiver %q", rc.Name)
@@ -202,7 +202,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			}
 		}
 
-		// Check required issue fields
+		// Check required issue fields.
 		if rc.Project == "" {
 			if c.Defaults.Project == "" {
 				return fmt.Errorf("missing project in receiver %q", rc.Name)
@@ -234,7 +234,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			rc.ReopenDuration = c.Defaults.ReopenDuration
 		}
 
-		// Populate optional issue fields, where necessary
+		// Populate optional issue fields, where necessary.
 		if rc.Priority == "" && c.Defaults.Priority != "" {
 			rc.Priority = c.Defaults.Priority
 		}
