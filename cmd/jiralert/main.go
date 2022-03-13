@@ -115,9 +115,6 @@ func main() {
 				Token: string(conf.PersonalAccessToken),
 			}
 			client, err = jira.NewClient(tp.Client(), conf.APIURL)
-		} else {
-			// Config should not allow us to get here, but just in case...
-			errorHandler(w, http.StatusInternalServerError, fmt.Errorf("missing JIRA auth config"), conf.Name, &data, logger)
 		}
 
 		if err != nil {
