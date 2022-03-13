@@ -142,13 +142,11 @@ func TestMissingConfigKeys(t *testing.T) {
 // Tests regarding mandatory keys.
 // No tests for auth keys here. They will be handled separately.
 func TestRequiredReceiverConfigKeys(t *testing.T) {
-	type testCase struct {
+	mandatory := mandatoryReceiverFields()
+	for _, test := range []struct {
 		missingField string
 		errorMessage string
-	}
-
-	// We'll remove one key at a time and check that the error is the expected one.
-	testTable := []testCase{
+	}{
 		{"Name", "missing name for receiver"},
 		{"APIURL", `missing api_url in receiver "Name"`},
 		{"Project", `missing project in receiver "Name"`},
@@ -156,13 +154,11 @@ func TestRequiredReceiverConfigKeys(t *testing.T) {
 		{"Summary", `missing summary in receiver "Name"`},
 		{"ReopenState", `missing reopen_state in receiver "Name"`},
 		{"ReopenDuration", `missing reopen_duration in receiver "Name"`},
-	}
+	} {
 
-	mandatory := mandatoryReceiverFields()
-	for _, test := range testTable {
 		fields := removeFromStrSlice(mandatory, test.missingField)
 
-		// non-empty defaults as we don't handle the empty defaults case yet.
+		// Non-empty defaults as we don't handle the empty defaults case yet.
 		defaultsConfig := newReceiverTestConfig([]string{}, []string{"Priority"})
 		receiverConfig := newReceiverTestConfig(fields, []string{})
 		config := testConfig{
@@ -177,18 +173,17 @@ func TestRequiredReceiverConfigKeys(t *testing.T) {
 
 // Auth keys error scenarios.
 func TestAuthKeysErrors(t *testing.T) {
-	type testCase struct {
-		receiverTestConfigMandatoryFields []string
-		errorMessage                      string
-	}
-
 	mandatory := mandatoryReceiverFields()
+	minimalReceiverTestConfig := newReceiverTestConfig([]string{"Name"}, []string{})
 
 	// Test cases:
 	// * missing user.
 	// * missing password.
 	// * specifying user/password and PAT auth.
-	testTable := []testCase{
+	for _, test := range []struct {
+		receiverTestConfigMandatoryFields []string
+		errorMessage                      string
+	}{
 		{
 			removeFromStrSlice(mandatory, "User"),
 			`missing authentication in receiver "Name"`,
@@ -201,10 +196,8 @@ func TestAuthKeysErrors(t *testing.T) {
 			append(mandatory, "PersonalAccessToken"),
 			"bad auth config in defaults section: user/password and PAT authentication are mutually exclusive",
 		},
-	}
+	} {
 
-	minimalReceiverTestConfig := newReceiverTestConfig([]string{"Name"}, []string{})
-	for _, test := range testTable {
 		defaultsConfig := newReceiverTestConfig(test.receiverTestConfigMandatoryFields, []string{})
 		config := testConfig{
 			Defaults:  defaultsConfig,
@@ -218,13 +211,6 @@ func TestAuthKeysErrors(t *testing.T) {
 
 // These tests want to make sure that receiver auth always overrides defaults auth.
 func TestAuthKeysOverrides(t *testing.T) {
-	type testCase struct {
-		userOverrideValue     string
-		passwordOverrideValue string
-		patOverrideValue      string   // Personal Access Token override.
-		defaultFields         []string // Fields to build the config defaults.
-	}
-
 	defaultsWithUserPassword := mandatoryReceiverFields()
 
 	defaultsWithPAT := []string{"PersonalAccessToken"}
@@ -240,14 +226,17 @@ func TestAuthKeysOverrides(t *testing.T) {
 	// * PAT receiver overrides user/password default.
 	// * PAT receiver overrides PAT default.
 	// * user/password receiver overrides PAT default.
-	testTable := []testCase{
+	for _, test := range []struct {
+		userOverrideValue     string
+		passwordOverrideValue string
+		patOverrideValue      string   // Personal Access Token override.
+		defaultFields         []string // Fields to build the config defaults.
+	}{
 		{"jira_user", "jira_password", "", defaultsWithUserPassword},
 		{"", "", "jira_personal_access_token", defaultsWithUserPassword},
 		{"jira_user", "jira_password", "", defaultsWithPAT},
 		{"", "", "jira_personal_access_token", defaultsWithPAT},
-	}
-
-	for _, test := range testTable {
+	} {
 		defaultsConfig := newReceiverTestConfig(test.defaultFields, []string{})
 		receiverConfig := newReceiverTestConfig([]string{"Name"}, []string{})
 		if test.userOverrideValue != "" {
@@ -282,17 +271,15 @@ func TestAuthKeysOverrides(t *testing.T) {
 // Tests regarding yaml keys overriden in the receiver config.
 // No tests for auth keys here. They will be handled separately
 func TestReceiverOverrides(t *testing.T) {
-	type testCase struct {
-		overrideField string
-		overrideValue interface{}
-		expectedValue interface{}
-	}
-
 	fifteenHoursToDuration, err := ParseDuration("15h")
 	require.NoError(t, err)
 
 	// We'll override one key at a time and check the value in the receiver.
-	testTable := []testCase{
+	for _, test := range []struct {
+		overrideField string
+		overrideValue interface{}
+		expectedValue interface{}
+	}{
 		{"APIURL", `https://jira.redhat.com`, `https://jira.redhat.com`},
 		{"Project", "APPSRE", "APPSRE"},
 		{"IssueType", "Task", "Task"},
@@ -303,9 +290,7 @@ func TestReceiverOverrides(t *testing.T) {
 		{"Description", "A nice description", "A nice description"},
 		{"WontFixResolution", "Won't Fix", "Won't Fix"},
 		{"AddGroupLabels", false, false},
-	}
-
-	for _, test := range testTable {
+	} {
 		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels"}
 		defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), optionalFields)
 		receiverConfig := newReceiverTestConfig([]string{"Name"}, optionalFields)
