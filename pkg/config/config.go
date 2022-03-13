@@ -160,7 +160,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// To make unmarshal fill the plain data struct rather than calling UnmarshalYAML
 	// again, we have to hide it using a type indirection.
 
-	// TODO: Handle the empty defaults case
+	// TODO: This function panics when there are no defaults. This needs to be fixed.
 
 	type plain Config
 	if err := unmarshal((*plain)(c)); err != nil {
