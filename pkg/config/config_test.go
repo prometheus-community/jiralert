@@ -179,7 +179,9 @@ func TestAuthKeysErrors(t *testing.T) {
 	// Test cases:
 	// * missing user.
 	// * missing password.
-	// * specifying user/password and PAT auth.
+	// * specifying user and PAT auth.
+	// * specifying password and PAT auth.
+	// * specifying user, password and PAT auth.
 	for _, test := range []struct {
 		receiverTestConfigMandatoryFields []string
 		errorMessage                      string
@@ -191,6 +193,15 @@ func TestAuthKeysErrors(t *testing.T) {
 		{
 			removeFromStrSlice(mandatory, "Password"),
 			`missing authentication in receiver "Name"`,
+		},
+		{
+			append(removeFromStrSlice(mandatory, "Password"), "PersonalAccessToken"),
+			"bad auth config in defaults section: user/password and PAT authentication are mutually exclusive",
+		},
+
+		{
+			append(removeFromStrSlice(mandatory, "User"), "PersonalAccessToken"),
+			"bad auth config in defaults section: user/password and PAT authentication are mutually exclusive",
 		},
 		{
 			append(mandatory, "PersonalAccessToken"),
@@ -222,20 +233,27 @@ func TestAuthKeysOverrides(t *testing.T) {
 	}
 
 	// Test cases:
-	// * user/password receiver overrides user/password default.
-	// * PAT receiver overrides user/password default.
+	// * user receiver overrides user default.
+	// * password receiver overrides password default.
+	// * user & password receiver overrides user & password default.
+	// * PAT receiver overrides user & password default.
 	// * PAT receiver overrides PAT default.
 	// * user/password receiver overrides PAT default.
 	for _, test := range []struct {
 		userOverrideValue     string
 		passwordOverrideValue string
-		patOverrideValue      string   // Personal Access Token override.
+		patOverrideValue      string // Personal Access Token override.
+		userExpectedValue     string
+		passwordExpectedValue string
+		patExpectedValue      string
 		defaultFields         []string // Fields to build the config defaults.
 	}{
-		{"jira_user", "jira_password", "", defaultsWithUserPassword},
-		{"", "", "jira_personal_access_token", defaultsWithUserPassword},
-		{"jira_user", "jira_password", "", defaultsWithPAT},
-		{"", "", "jira_personal_access_token", defaultsWithPAT},
+		{"jiraUser", "", "", "jiraUser", "Password", "", defaultsWithUserPassword},
+		{"", "jiraPass", "", "User", "jiraPass", "", defaultsWithUserPassword},
+		{"jiraUser", "jiraPass", "", "jiraUser", "jiraPass", "", defaultsWithUserPassword},
+		{"", "", "jiraPAT", "", "", "jiraPAT", defaultsWithUserPassword},
+		{"jiraUser", "jiraPass", "", "jiraUser", "jiraPass", "", defaultsWithPAT},
+		{"", "", "jiraPAT", "", "", "jiraPAT", defaultsWithPAT},
 	} {
 		defaultsConfig := newReceiverTestConfig(test.defaultFields, []string{})
 		receiverConfig := newReceiverTestConfig([]string{"Name"}, []string{})
@@ -262,9 +280,9 @@ func TestAuthKeysOverrides(t *testing.T) {
 		require.NoError(t, err)
 
 		receiver := cfg.Receivers[0]
-		require.Equal(t, receiver.User, test.userOverrideValue)
-		require.Equal(t, receiver.Password, Secret(test.passwordOverrideValue))
-		require.Equal(t, receiver.PersonalAccessToken, Secret(test.patOverrideValue))
+		require.Equal(t, receiver.User, test.userExpectedValue)
+		require.Equal(t, receiver.Password, Secret(test.passwordExpectedValue))
+		require.Equal(t, receiver.PersonalAccessToken, Secret(test.patExpectedValue))
 	}
 }
 

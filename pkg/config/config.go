@@ -167,7 +167,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
-	if c.Defaults.User != "" && c.Defaults.Password != "" && c.Defaults.PersonalAccessToken != "" {
+	if (c.Defaults.User != "" || c.Defaults.Password != "") && c.Defaults.PersonalAccessToken != "" {
 		return fmt.Errorf("bad auth config in defaults section: user/password and PAT authentication are mutually exclusive")
 	}
 
@@ -187,14 +187,21 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			return fmt.Errorf("invalid api_url %q in receiver %q: %s", rc.APIURL, rc.Name, err)
 		}
 
-		if rc.User != "" && rc.Password != "" && rc.PersonalAccessToken != "" {
+		if (rc.User != "" || rc.Password != "") && rc.PersonalAccessToken != "" {
 			return fmt.Errorf("bad auth config in receiver %q: user/password and PAT authentication are mutually exclusive", rc.Name)
 		}
 
 		if (rc.User == "" || rc.Password == "") && rc.PersonalAccessToken == "" {
-			if c.Defaults.User != "" && c.Defaults.Password != "" {
+			if rc.User == "" && c.Defaults.User != "" {
 				rc.User = c.Defaults.User
+			}
+
+			if rc.Password == "" && c.Defaults.Password != "" {
 				rc.Password = c.Defaults.Password
+			}
+
+			if rc.User != "" && rc.Password != "" {
+				// Nothing to do, we're ready to go with basic auth.
 			} else if c.Defaults.PersonalAccessToken != "" {
 				rc.PersonalAccessToken = c.Defaults.PersonalAccessToken
 			} else {
