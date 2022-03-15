@@ -88,21 +88,23 @@ func resolveFilepaths(baseDir string, cfg *Config, logger log.Logger) {
 	cfg.Template = join(cfg.Template)
 }
 
-// ReceiverConfig is the configuration for one receiver. It has a unique name and includes API access fields (URL, user
-// and password) and issue fields (required -- e.g. project, issue type -- and optional -- e.g. priority).
+// ReceiverConfig is the configuration for one receiver. It has a unique name and includes API access fields (url and
+// auth) and issue fields (required -- e.g. project, issue type -- and optional -- e.g. priority).
 type ReceiverConfig struct {
 	Name string `yaml:"name" json:"name"`
 
 	// API access fields
-	APIURL   string `yaml:"api_url" json:"api_url"`
-	User     string `yaml:"user" json:"user"`
-	Password Secret `yaml:"password" json:"password"`
+	APIURL              string `yaml:"api_url" json:"api_url"`
+	User                string `yaml:"user" json:"user"`
+	Password            Secret `yaml:"password" json:"password"`
+	PersonalAccessToken Secret `yaml:"personal_access_token" json:"personal_access_token"`
 
 	// Required issue fields
-	Project     string `yaml:"project" json:"project"`
-	IssueType   string `yaml:"issue_type" json:"issue_type"`
-	Summary     string `yaml:"summary" json:"summary"`
-	ReopenState string `yaml:"reopen_state" json:"reopen_state"`
+	Project        string    `yaml:"project" json:"project"`
+	IssueType      string    `yaml:"issue_type" json:"issue_type"`
+	Summary        string    `yaml:"summary" json:"summary"`
+	ReopenState    string    `yaml:"reopen_state" json:"reopen_state"`
+	ReopenDuration *Duration `yaml:"reopen_duration" json:"reopen_duration"`
 
 	// Optional issue fields
 	Priority          string                 `yaml:"priority" json:"priority"`
@@ -110,7 +112,6 @@ type ReceiverConfig struct {
 	WontFixResolution string                 `yaml:"wont_fix_resolution" json:"wont_fix_resolution"`
 	Fields            map[string]interface{} `yaml:"fields" json:"fields"`
 	Components        []string               `yaml:"components" json:"components"`
-	ReopenDuration    *Duration              `yaml:"reopen_duration" json:"reopen_duration"`
 
 	// Label copy settings
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
@@ -158,9 +159,16 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// We want to set c to the defaults and then overwrite it with the input.
 	// To make unmarshal fill the plain data struct rather than calling UnmarshalYAML
 	// again, we have to hide it using a type indirection.
+
+	// TODO: This function panics when there are no defaults. This needs to be fixed.
+
 	type plain Config
 	if err := unmarshal((*plain)(c)); err != nil {
 		return err
+	}
+
+	if (c.Defaults.User != "" || c.Defaults.Password != "") && c.Defaults.PersonalAccessToken != "" {
+		return fmt.Errorf("bad auth config in defaults section: user/password and PAT authentication are mutually exclusive")
 	}
 
 	for _, rc := range c.Receivers {
@@ -168,7 +176,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			return fmt.Errorf("missing name for receiver %+v", rc)
 		}
 
-		// Check API access fields
+		// Check API access fields.
 		if rc.APIURL == "" {
 			if c.Defaults.APIURL == "" {
 				return fmt.Errorf("missing api_url in receiver %q", rc.Name)
@@ -178,20 +186,30 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		if _, err := url.Parse(rc.APIURL); err != nil {
 			return fmt.Errorf("invalid api_url %q in receiver %q: %s", rc.APIURL, rc.Name, err)
 		}
-		if rc.User == "" {
-			if c.Defaults.User == "" {
-				return fmt.Errorf("missing user in receiver %q", rc.Name)
-			}
-			rc.User = c.Defaults.User
-		}
-		if rc.Password == "" {
-			if c.Defaults.Password == "" {
-				return fmt.Errorf("missing password in receiver %q", rc.Name)
-			}
-			rc.Password = c.Defaults.Password
+
+		if (rc.User != "" || rc.Password != "") && rc.PersonalAccessToken != "" {
+			return fmt.Errorf("bad auth config in receiver %q: user/password and PAT authentication are mutually exclusive", rc.Name)
 		}
 
-		// Check required issue fields
+		if (rc.User == "" || rc.Password == "") && rc.PersonalAccessToken == "" {
+			if rc.User == "" && c.Defaults.User != "" {
+				rc.User = c.Defaults.User
+			}
+
+			if rc.Password == "" && c.Defaults.Password != "" {
+				rc.Password = c.Defaults.Password
+			}
+
+			if rc.User != "" && rc.Password != "" {
+				// Nothing to do, we're ready to go with basic auth.
+			} else if c.Defaults.PersonalAccessToken != "" {
+				rc.PersonalAccessToken = c.Defaults.PersonalAccessToken
+			} else {
+				return fmt.Errorf("missing authentication in receiver %q", rc.Name)
+			}
+		}
+
+		// Check required issue fields.
 		if rc.Project == "" {
 			if c.Defaults.Project == "" {
 				return fmt.Errorf("missing project in receiver %q", rc.Name)
@@ -223,7 +241,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			rc.ReopenDuration = c.Defaults.ReopenDuration
 		}
 
-		// Populate optional issue fields, where necessary
+		// Populate optional issue fields, where necessary.
 		if rc.Priority == "" && c.Defaults.Priority != "" {
 			rc.Priority = c.Defaults.Priority
 		}
