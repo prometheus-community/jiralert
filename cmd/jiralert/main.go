@@ -71,15 +71,15 @@ func main() {
 			"and try -hash-jira-label")
 	}
 
-	config, _, err := config.LoadFile(*configFile, logger)
+	loadedConfig, _, err := config.LoadFile(*configFile, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "error loading configuration", "path", *configFile, "err", err)
 		os.Exit(1)
 	}
 
-	tmpl, err := template.LoadTemplate(config.Template, logger)
+	tmpl, err := template.LoadTemplate(loadedConfig.Template, logger)
 	if err != nil {
-		level.Error(logger).Log("msg", "error loading templates", "path", config.Template, "err", err)
+		level.Error(logger).Log("msg", "error loading templates", "path", loadedConfig.Template, "err", err)
 		os.Exit(1)
 	}
 
@@ -94,7 +94,7 @@ func main() {
 			return
 		}
 
-		conf := config.ReceiverByName(data.Receiver)
+		conf := loadedConfig.ReceiverByName(data.Receiver)
 		if conf == nil {
 			errorHandler(w, http.StatusNotFound, fmt.Errorf("receiver missing: %s", data.Receiver), unknownReceiver, &data, logger)
 			return
@@ -125,7 +125,7 @@ func main() {
 		if retry, err := notify.NewReceiver(logger, conf, tmpl, client.Issue).Notify(&data, *hashJiraLabel); err != nil {
 			var status int
 			if retry {
-				// Instruct Alertmanager to retry.
+				// Instruct AlertManager to retry.
 				status = http.StatusServiceUnavailable
 			} else {
 				status = http.StatusInternalServerError
@@ -138,7 +138,7 @@ func main() {
 	})
 
 	http.HandleFunc("/", HomeHandlerFunc())
-	http.HandleFunc("/config", ConfigHandlerFunc(config))
+	http.HandleFunc("/loadedConfig", ConfigHandlerFunc(loadedConfig))
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "OK", http.StatusOK) })
 	http.Handle("/metrics", promhttp.Handler())
 
@@ -168,8 +168,8 @@ func errorHandler(w http.ResponseWriter, status int, err error, receiver string,
 	}
 	// JSON response
 	bytes, _ := json.Marshal(response)
-	json := string(bytes[:])
-	fmt.Fprint(w, json)
+	jsonData := string(bytes[:])
+	_, _ = fmt.Fprint(w, jsonData)
 
 	level.Error(logger).Log("msg", "error handling request", "statusCode", status, "statusText", http.StatusText(status), "err", err, "receiver", receiver, "groupLabels", data.GroupLabels)
 	requestTotal.WithLabelValues(receiver, strconv.FormatInt(int64(status), 10)).Inc()
