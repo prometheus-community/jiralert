@@ -113,6 +113,10 @@ type ReceiverConfig struct {
 	Fields            map[string]interface{} `yaml:"fields" json:"fields"`
 	Components        []string               `yaml:"components" json:"components"`
 
+	// Optional parent issue fields
+	ParentJql         string `yaml:"parent_jql" json:"parent_jql"`
+	ParentSubtaskType string `yaml:"parent_subtask_type" json:"parent_subtask_type"`
+
 	// Label copy settings
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
 

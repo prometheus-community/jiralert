@@ -48,6 +48,10 @@ defaults:
   # Optional (default: always reopen)
   reopen_duration: 0h
 
+  # Parent issue related fields, override globals
+  parent_jql: "project = \"AB\" AND type = \"Quarterly Report\" ORDER BY created DESC"
+  parent_subtask_type: Subtask
+
 # Receiver definitions. At least one must be defined.
 receivers:
     # Must match the Alertmanager receiver name. Required.
@@ -56,6 +60,10 @@ receivers:
     project: AB
     # Copy all Prometheus labels into separate JIRA labels. Optional (default: false).
     add_group_labels: false
+
+	# Parent issue related fields, override globals
+	parent_jql: "project = \"AB\" AND type = \"Duty Report\" ORDER BY created DESC"
+    parent_subtask_type: Alert
 
   - name: 'jira-xy'
     project: XY
@@ -308,6 +316,8 @@ func TestReceiverOverrides(t *testing.T) {
 		{"Description", "A nice description", "A nice description"},
 		{"WontFixResolution", "Won't Fix", "Won't Fix"},
 		{"AddGroupLabels", false, false},
+		{"ParentJql", "Project = \"ALERT\"", "Project = \"ALERT\""},
+		{"ParentSubtaskType", "Alert-task", "Alert-task"},
 	} {
 		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels"}
 		defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), optionalFields)

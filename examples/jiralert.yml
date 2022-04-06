@@ -9,18 +9,28 @@ defaults:
   # The type of JIRA issue to create. Required.
   issue_type: Bug
   # Issue priority. Optional.
-  priority: Critical
+  priority: High
   # Go template invocation for generating the summary. Required.
   summary: '{{ template "jira.summary" . }}'
   # Go template invocation for generating the description. Optional.
   description: '{{ template "jira.description" . }}'
   # State to transition into when reopening a closed issue. Required.
-  reopen_state: "To Do"
+  reopen_state: "Reopened"
   # Do not reopen issues with this resolution. Optional.
   wont_fix_resolution: "Won't Fix"
   # Amount of time after being closed that an issue should be reopened, after which, a new issue is created.
   # Optional (default: always reopen)
   reopen_duration: 0h
+
+  # Optional global jql to find the parent ticket to assign tickets to
+  # This can be used if there is automation and parent tickets change (eq: every week new parent)
+  # This jql is fed into jira search api, for more info:
+  # https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-post
+  # NB! If parent is used, then issue_type must be one of sub-task types in jira
+  parent_jql: ""
+  # Optional, used in conjunction with parent_jql, if parent_jql find issue, then this type of issue is created
+  # If this is not given or parent_jql returns empty, created issue type defaults to issue_type value
+  parent_subtask_type: Subtask
 
 # Receiver definitions. At least one must be defined.
 receivers:
@@ -31,6 +41,8 @@ receivers:
     # Copy all Prometheus labels into separate JIRA labels. Optional (default: false).
     add_group_labels: false
 
+    parent_jql: "project = \"AB\" AND type = \"Duty Report\" ORDER BY created DESC"
+    parent_subtask_type: Subtask
   - name: 'jira-xy'
     project: XY
     # Overrides default.
@@ -41,6 +53,8 @@ receivers:
     #
     # See https://developer.atlassian.com/server/jira/platform/jira-rest-api-examples/#setting-custom-field-data-for-other-field-types for further examples.
     fields:
+      parent:
+        key: XY-99
       # TextField
       customfield_10001: "Random text"
       # SelectList

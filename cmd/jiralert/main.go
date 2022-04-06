@@ -122,6 +122,23 @@ func main() {
 			return
 		}
 
+		if conf.ParentJql != "" {
+			parentKey, err := searchParentKeyByJql(conf.ParentJql, *client)
+			if err != nil {
+				level.Debug(logger).Log("msg", "No issues found with given JQL", "JQL", conf.ParentJql)
+				errorHandler(w, http.StatusBadRequest, err, conf.Name, &data, logger)
+				return
+			}
+
+			level.Debug(logger).Log("msg", "Found parent via JQL", "JQL", conf.ParentJql, "Parent", parentKey)
+			conf.Fields["parent"] = map[string]interface{}{"key": parentKey}
+
+			// if subtaskType is given, overwrite issue type with ParentSubtaskType
+			if conf.ParentSubtaskType != "" {
+				conf.IssueType = conf.ParentSubtaskType
+			}
+		}
+
 		if retry, err := notify.NewReceiver(logger, conf, tmpl, client.Issue).Notify(&data, *hashJiraLabel); err != nil {
 			var status int
 			if retry {
@@ -195,5 +212,18 @@ func setupLogger(lvl string, fmt string) (logger log.Logger) {
 	}
 	logger = level.NewFilter(logger, filter)
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
+	return
+}
+
+func searchParentKeyByJql(jql string, client jira.Client) (parentKey string, err error) {
+	options := &jira.SearchOptions{StartAt: 0, MaxResults: 1}
+	chunk, resp, err := client.Issue.Search(jql, options)
+	if err != nil {
+		return
+	}
+
+	if resp.Total > 0 {
+		parentKey = chunk[0].Key
+	}
 	return
 }
