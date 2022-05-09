@@ -134,7 +134,7 @@ func (f *fakeJira) UpdateWithOptions(old *jira.Issue, _ *jira.UpdateQueryOptions
 
 		if old.Fields.Resolution.Name == "done" {
 			issue.Fields.Status = &jira.Status{
-				StatusCategory: jira.StatusCategory{Key: "done"},
+				StatusCategory: jira.StatusCategory{Key: jira.StatusCategoryComplete},
 			}
 		}
 	}
@@ -535,7 +535,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 						Project: jira.Project{Key: testReceiverConfig2().Project},
 						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Status: &jira.Status{
-							StatusCategory: jira.StatusCategory{Key: "done"},
+							StatusCategory: jira.StatusCategory{Key: jira.StatusCategoryComplete},
 						},
 						Resolution: &jira.Resolution{
 							Name: "done",
