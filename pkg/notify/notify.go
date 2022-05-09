@@ -101,8 +101,18 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 		}
 
 		if len(data.Alerts.Firing()) == 0 {
-			level.Debug(r.logger).Log("msg", "no firing alert; summary checked, nothing else to do.", "key", issue.Key, "label", issueGroupLabel)
-			return false, nil
+			if r.conf.AutoResolve {
+				level.Debug(r.logger).Log("msg", "no firing alert; resolving issue", "key", issue.Key, "label", issueGroupLabel)
+				retry, err := r.resolveIssue(issue.Key)
+				if err != nil {
+					return retry, err
+				}
+				return false, nil
+
+			} else {
+				level.Debug(r.logger).Log("msg", "no firing alert; summary checked, nothing else to do.", "key", issue.Key, "label", issueGroupLabel)
+				return false, nil
+			}
 		}
 
 		// The set of JIRA status categories is fixed, this is a safe check to make.
@@ -389,4 +399,23 @@ func handleJiraErrResponse(api string, resp *jira.Response, err error, logger lo
 		return retry, errors.Errorf("JIRA request %s returned status %s, body %q", resp.Request.URL, resp.Status, string(body))
 	}
 	return false, errors.Wrapf(err, "JIRA request %s failed", api)
+}
+
+func (r *Receiver) resolveIssue(issueKey string) (bool, error) {
+	level.Debug(r.logger).Log("msg", "Resolving issue", "key", issueKey)
+
+	issueUpdate := &jira.Issue{
+		Key: issueKey,
+		Fields: &jira.IssueFields{
+			Resolution: &jira.Resolution{
+				Name: "done",
+			},
+		},
+	}
+	issue, resp, err := r.client.UpdateWithOptions(issueUpdate, nil)
+	if err != nil {
+		return handleJiraErrResponse("Issue.UpdateWithOptions", resp, err, r.logger)
+	}
+	level.Debug(r.logger).Log("msg", "issue resolved", "key", issue.Key, "id", issue.ID)
+	return false, nil
 }

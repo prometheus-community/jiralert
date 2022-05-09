@@ -116,6 +116,9 @@ type ReceiverConfig struct {
 	// Label copy settings
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
 
+	// Flag to auto resolve opened issue when alert is resolved
+	AutoResolve bool `yaml:"auto_resolve" json:"auto_resolve"`
+
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline" json:"-"`
 }
