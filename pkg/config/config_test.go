@@ -111,6 +111,9 @@ type receiverTestConfig struct {
 	WontFixResolution string `yaml:"wont_fix_resolution,omitempty"`
 	AddGroupLabels    bool   `yaml:"add_group_labels,omitempty"`
 
+	AutoResolve      bool   `yaml:"auto_resolve" json:"auto_resolve"`
+	AutoResolveState string `yaml:"auto_resolve_state" json:"auto_resolve_state"`
+
 	// TODO(rporres): Add support for these.
 	// Fields            map[string]interface{} `yaml:"fields,omitempty"`
 	// Components        []string               `yaml:"components,omitempty"`
@@ -308,8 +311,10 @@ func TestReceiverOverrides(t *testing.T) {
 		{"Description", "A nice description", "A nice description"},
 		{"WontFixResolution", "Won't Fix", "Won't Fix"},
 		{"AddGroupLabels", false, false},
+		{"AutoResolve", false, false},
+		{"AutoResolveState", "Done", "Done"},
 	} {
-		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels"}
+		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels", "AutoResolve", "AutoResolveState"}
 		defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), optionalFields)
 		receiverConfig := newReceiverTestConfig([]string{"Name"}, optionalFields)
 
@@ -361,6 +366,8 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 		var value reflect.Value
 		if name == "AddGroupLabels" {
 			value = reflect.ValueOf(true)
+		} else if name == "AutoResolve" {
+			value = reflect.ValueOf(true)
 		} else {
 			value = reflect.ValueOf(name)
 		}
@@ -398,4 +405,22 @@ func removeFromStrSlice(strSlice []string, element string) []string {
 func mandatoryReceiverFields() []string {
 	return []string{"Name", "APIURL", "User", "Password", "Project",
 		"IssueType", "Summary", "ReopenState", "ReopenDuration"}
+}
+
+func TestAutoResolveConfig(t *testing.T) {
+	mandatory := mandatoryReceiverFields()
+	minimalReceiverTestConfig := newReceiverTestConfig([]string{"Name"}, []string{})
+
+	// Test cases:
+	// * missing auto_resolve_state
+
+	defaultsConfig := newReceiverTestConfig(mandatory, []string{"AutoResolve"})
+	config := testConfig{
+		Defaults:  defaultsConfig,
+		Receivers: []*receiverTestConfig{minimalReceiverTestConfig},
+		Template:  "jiralert.tmpl",
+	}
+
+	configErrorTestRunner(t, config, "bad config in defaults section: auto_resolve_state must be defined when auto_resolve is set to true")
+
 }
