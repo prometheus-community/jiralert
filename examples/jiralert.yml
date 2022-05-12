@@ -30,7 +30,10 @@ receivers:
     project: AB
     # Copy all Prometheus labels into separate JIRA labels. Optional (default: false).
     add_group_labels: false
-
+    # Automatically resolve jira issues when alert is resolved. Optional (default: false)
+    auto_resolve: true
+    # Used for setting state when resolving the issue. Must be set if `auto_resolve` is set.
+    auto_resolve_state: "Done" 
   - name: 'jira-xy'
     project: XY
     # Overrides default.
