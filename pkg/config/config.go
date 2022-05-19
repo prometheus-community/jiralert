@@ -175,10 +175,6 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return fmt.Errorf("bad auth config in defaults section: user/password and PAT authentication are mutually exclusive")
 	}
 
-	if c.Defaults.AutoResolve == true && c.Defaults.AutoResolveState == "" {
-		return fmt.Errorf("bad config in defaults section: auto_resolve_state must be defined when auto_resolve is set to true")
-	}
-
 	for _, rc := range c.Receivers {
 		if rc.Name == "" {
 			return fmt.Errorf("missing name for receiver %+v", rc)
@@ -261,6 +257,9 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		}
 		if rc.AutoResolveState == "" && c.Defaults.AutoResolveState != "" {
 			rc.AutoResolveState = c.Defaults.AutoResolveState
+		}
+		if rc.AutoResolve == true && rc.AutoResolveState == "" {
+			return fmt.Errorf("bad config in receiver section: auto_resolve_state must be defined when auto_resolve is set to true")
 		}
 		if len(c.Defaults.Fields) > 0 {
 			for key, value := range c.Defaults.Fields {

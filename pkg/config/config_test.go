@@ -409,18 +409,15 @@ func mandatoryReceiverFields() []string {
 
 func TestAutoResolveConfig(t *testing.T) {
 	mandatory := mandatoryReceiverFields()
-	minimalReceiverTestConfig := newReceiverTestConfig([]string{"Name"}, []string{})
+	minimalReceiverTestConfig := newReceiverTestConfig([]string{"Name"}, []string{"AutoResolve"})
 
-	// Test cases:
-	// * missing auto_resolve_state
-
-	defaultsConfig := newReceiverTestConfig(mandatory, []string{"AutoResolve"})
+	defaultsConfig := newReceiverTestConfig(mandatory, []string{})
 	config := testConfig{
 		Defaults:  defaultsConfig,
 		Receivers: []*receiverTestConfig{minimalReceiverTestConfig},
 		Template:  "jiralert.tmpl",
 	}
 
-	configErrorTestRunner(t, config, "bad config in defaults section: auto_resolve_state must be defined when auto_resolve is set to true")
+	configErrorTestRunner(t, config, "bad config in receiver section: auto_resolve_state must be defined when auto_resolve is set to true")
 
 }

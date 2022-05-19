@@ -174,7 +174,7 @@ func testReceiverConfig2() *config.ReceiverConfig {
 	}
 }
 
-func testReceiverConfig3() *config.ReceiverConfig {
+func testReceiverConfigAutoResolve() *config.ReceiverConfig {
 	reopen := config.Duration(1 * time.Hour)
 	return &config.ReceiverConfig{
 		Project:           "abc",
@@ -494,7 +494,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 		},
 		{
 			name:        "auto resolve alert",
-			inputConfig: testReceiverConfig3(),
+			inputConfig: testReceiverConfigAutoResolve(),
 			inputAlert: &alertmanager.Data{
 				Alerts: alertmanager.Alerts{
 					{Status: "resolved"},
@@ -508,7 +508,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					ID:  "1",
 					Key: "1",
 					Fields: &jira.IssueFields{
-						Project:     jira.Project{Key: testReceiverConfig3().Project},
+						Project:     jira.Project{Key: testReceiverConfigAutoResolve().Project},
 						Labels:      []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Unknowns:    tcontainer.MarshalMap{},
 						Summary:     "[FIRING:2] b d ",
@@ -523,7 +523,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 					ID:  "1",
 					Key: "1",
 					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfig3().Project},
+						Project: jira.Project{Key: testReceiverConfigAutoResolve().Project},
 						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
 						Status: &jira.Status{
 							StatusCategory: jira.StatusCategory{Key: "Done"},
