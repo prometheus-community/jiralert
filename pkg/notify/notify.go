@@ -101,7 +101,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 		}
 
 		if len(data.Alerts.Firing()) == 0 {
-			if r.conf.AutoResolve {
+			if r.conf.AutoResolve != nil {
 				level.Debug(r.logger).Log("msg", "no firing alert; resolving issue", "key", issue.Key, "label", issueGroupLabel)
 				retry, err := r.resolveIssue(issue.Key)
 				if err != nil {
@@ -385,7 +385,7 @@ func handleJiraErrResponse(api string, resp *jira.Response, err error, logger lo
 }
 
 func (r *Receiver) resolveIssue(issueKey string) (bool, error) {
-	return r.doTransition(issueKey, r.conf.AutoResolveState)
+	return r.doTransition(issueKey, r.conf.AutoResolve.State)
 }
 
 func (r *Receiver) doTransition(issueKey string, transitionState string) (bool, error) {

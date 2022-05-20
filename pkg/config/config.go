@@ -88,6 +88,10 @@ func resolveFilepaths(baseDir string, cfg *Config, logger log.Logger) {
 	cfg.Template = join(cfg.Template)
 }
 
+type AutoResolve struct {
+	State string `yaml:"state" json:"state"`
+}
+
 // ReceiverConfig is the configuration for one receiver. It has a unique name and includes API access fields (url and
 // auth) and issue fields (required -- e.g. project, issue type -- and optional -- e.g. priority).
 type ReceiverConfig struct {
@@ -117,8 +121,7 @@ type ReceiverConfig struct {
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
 
 	// Flag to auto resolve opened issue when alert is resolved
-	AutoResolve      bool   `yaml:"auto_resolve" json:"auto_resolve"`
-	AutoResolveState string `yaml:"auto_resolve_state" json:"auto_resolve_state"`
+	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline" json:"-"`
@@ -173,6 +176,12 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	if (c.Defaults.User != "" || c.Defaults.Password != "") && c.Defaults.PersonalAccessToken != "" {
 		return fmt.Errorf("bad auth config in defaults section: user/password and PAT authentication are mutually exclusive")
+	}
+
+	if c.Defaults.AutoResolve != nil {
+		if c.Defaults.AutoResolve.State == "" {
+			return fmt.Errorf("bad config in defaults section: state cannot be empty")
+		}
 	}
 
 	for _, rc := range c.Receivers {
@@ -255,11 +264,13 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		if rc.WontFixResolution == "" && c.Defaults.WontFixResolution != "" {
 			rc.WontFixResolution = c.Defaults.WontFixResolution
 		}
-		if rc.AutoResolveState == "" && c.Defaults.AutoResolveState != "" {
-			rc.AutoResolveState = c.Defaults.AutoResolveState
+		if rc.AutoResolve != nil {
+			if rc.AutoResolve.State == "" {
+				return fmt.Errorf("bad config in receiver %q, state cannot be empty", rc.Name)
+			}
 		}
-		if rc.AutoResolve == true && rc.AutoResolveState == "" {
-			return fmt.Errorf("bad config in receiver section: auto_resolve_state must be defined when auto_resolve is set to true")
+		if rc.AutoResolve == nil && c.Defaults.AutoResolve != nil {
+			rc.AutoResolve = c.Defaults.AutoResolve
 		}
 		if len(c.Defaults.Fields) > 0 {
 			for key, value := range c.Defaults.Fields {
