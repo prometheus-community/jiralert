@@ -118,6 +118,7 @@ type receiverTestConfig struct {
 	// Components        []string               `yaml:"components,omitempty"`
 }
 
+// A test version of the AutoResolve struct to create test yaml fixtures.
 type testAutoResolve struct {
 	State string `yaml:"state" json:"state"`
 }
