@@ -111,16 +111,11 @@ type receiverTestConfig struct {
 	WontFixResolution string `yaml:"wont_fix_resolution,omitempty"`
 	AddGroupLabels    bool   `yaml:"add_group_labels,omitempty"`
 
-	AutoResolve *testAutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
+	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
 
 	// TODO(rporres): Add support for these.
 	// Fields            map[string]interface{} `yaml:"fields,omitempty"`
 	// Components        []string               `yaml:"components,omitempty"`
-}
-
-// A test version of the AutoResolve struct to create test yaml fixtures.
-type testAutoResolve struct {
-	State string `yaml:"state" json:"state"`
 }
 
 // A test version of the Config struct to create test yaml fixtures.
@@ -316,7 +311,7 @@ func TestReceiverOverrides(t *testing.T) {
 		{"Description", "A nice description", "A nice description"},
 		{"WontFixResolution", "Won't Fix", "Won't Fix"},
 		{"AddGroupLabels", false, false},
-		{"AutoResolve", &testAutoResolve{State: "Done"}, &auto_resolve},
+		{"AutoResolve", &AutoResolve{State: "Done"}, &auto_resolve},
 	} {
 		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels", "AutoResolve"}
 		defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), optionalFields)
@@ -371,7 +366,7 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 		if name == "AddGroupLabels" {
 			value = reflect.ValueOf(true)
 		} else if name == "AutoResolve" {
-			value = reflect.ValueOf(&testAutoResolve{State: "Done"})
+			value = reflect.ValueOf(&AutoResolve{State: "Done"})
 		} else {
 			value = reflect.ValueOf(name)
 		}
@@ -415,7 +410,7 @@ func TestAutoResolveConfigReceiver(t *testing.T) {
 	mandatory := mandatoryReceiverFields()
 	minimalReceiverTestConfig := &receiverTestConfig{
 		Name: "test",
-		AutoResolve: &testAutoResolve{
+		AutoResolve: &AutoResolve{
 			State: "",
 		},
 	}
@@ -436,7 +431,7 @@ func TestAutoResolveConfigDefault(t *testing.T) {
 	minimalReceiverTestConfig := newReceiverTestConfig([]string{"Name"}, []string{"AutoResolve"})
 
 	defaultsConfig := newReceiverTestConfig(mandatory, []string{})
-	defaultsConfig.AutoResolve = &testAutoResolve{
+	defaultsConfig.AutoResolve = &AutoResolve{
 		State: "",
 	}
 	config := testConfig{
