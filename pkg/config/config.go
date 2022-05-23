@@ -88,6 +88,7 @@ func resolveFilepaths(baseDir string, cfg *Config, logger log.Logger) {
 	cfg.Template = join(cfg.Template)
 }
 
+// AutoResolve is the struct used for defining jira resolution state when alert is resolved.
 type AutoResolve struct {
 	State string `yaml:"state" json:"state"`
 }
