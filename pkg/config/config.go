@@ -121,7 +121,7 @@ type ReceiverConfig struct {
 	// Label copy settings
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
 
-	// Flag to auto resolve opened issue when alert is resolved
+	// Flag to auto-resolve opened issue when the alert is resolved.
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
 
 	// Catches all undefined fields and must be empty after parsing.
@@ -267,7 +267,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		}
 		if rc.AutoResolve != nil {
 			if rc.AutoResolve.State == "" {
-				return fmt.Errorf("bad config in receiver %q, state cannot be empty", rc.Name)
+				return fmt.Errorf("bad config in receiver %q, 'auto_resolve' was defined with empty 'state' field", rc.Name)
 			}
 		}
 		if rc.AutoResolve == nil && c.Defaults.AutoResolve != nil {
