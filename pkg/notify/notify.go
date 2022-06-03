@@ -108,11 +108,10 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 					return retry, err
 				}
 				return false, nil
-
-			} else {
-				level.Debug(r.logger).Log("msg", "no firing alert; summary checked, nothing else to do.", "key", issue.Key, "label", issueGroupLabel)
-				return false, nil
 			}
+
+			level.Debug(r.logger).Log("msg", "no firing alert; summary checked, nothing else to do.", "key", issue.Key, "label", issueGroupLabel)
+			return false, nil
 		}
 
 		// The set of JIRA status categories is fixed, this is a safe check to make.

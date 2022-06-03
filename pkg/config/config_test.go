@@ -292,7 +292,7 @@ func TestAuthKeysOverrides(t *testing.T) {
 // No tests for auth keys here. They will be handled separately
 func TestReceiverOverrides(t *testing.T) {
 	fifteenHoursToDuration, err := ParseDuration("15h")
-	auto_resolve := AutoResolve{State: "Done"}
+	autoResolve := AutoResolve{State: "Done"}
 	require.NoError(t, err)
 
 	// We'll override one key at a time and check the value in the receiver.
@@ -311,7 +311,7 @@ func TestReceiverOverrides(t *testing.T) {
 		{"Description", "A nice description", "A nice description"},
 		{"WontFixResolution", "Won't Fix", "Won't Fix"},
 		{"AddGroupLabels", false, false},
-		{"AutoResolve", &AutoResolve{State: "Done"}, &auto_resolve},
+		{"AutoResolve", &AutoResolve{State: "Done"}, &autoResolve},
 	} {
 		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels", "AutoResolve"}
 		defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), optionalFields)
@@ -422,7 +422,7 @@ func TestAutoResolveConfigReceiver(t *testing.T) {
 		Template:  "jiralert.tmpl",
 	}
 
-	configErrorTestRunner(t, config, "bad config in receiver \"test\", state cannot be empty")
+	configErrorTestRunner(t, config, "bad config in receiver \"test\", 'auto_resolve' was defined with empty 'state' field")
 
 }
 
