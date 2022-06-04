@@ -27,6 +27,9 @@ const (
 
 	// AlertFiring is the status value for a firing alert.
 	AlertFiring = "firing"
+
+	// AlertResolved is the status value for a resolved alert.
+	AlertResolved = "resolved"
 )
 
 // Pair is a key/value string pair.

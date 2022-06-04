@@ -46,7 +46,7 @@ type fakeJira struct {
 func newTestFakeJira() *fakeJira {
 	return &fakeJira{
 		issuesByKey:     map[string]*jira.Issue{},
-		transitionsByID: map[string]jira.Transition{},
+		transitionsByID: map[string]jira.Transition{"1234": {ID: "1234", Name: "Done"}},
 		keysByQuery:     map[string][]string{},
 	}
 }
@@ -171,6 +171,19 @@ func testReceiverConfig2() *config.ReceiverConfig {
 		ReopenState:       "reopened",
 		Description:       `{{ .Alerts.Firing | len }}`,
 		WontFixResolution: "won't-fix",
+	}
+}
+
+func testReceiverConfigAutoResolve() *config.ReceiverConfig {
+	reopen := config.Duration(1 * time.Hour)
+	autoResolve := config.AutoResolve{State: "Done"}
+	return &config.ReceiverConfig{
+		Project:           "abc",
+		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
+		ReopenDuration:    &reopen,
+		ReopenState:       "reopened",
+		WontFixResolution: "won't-fix",
+		AutoResolve:       &autoResolve,
 	}
 }
 
@@ -475,6 +488,49 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 						},
 						Unknowns: tcontainer.MarshalMap{},
 						Summary:  "[FIRING:1] b d ", // Title changed.
+					},
+				},
+			},
+		},
+		{
+			name:        "auto resolve alert",
+			inputConfig: testReceiverConfigAutoResolve(),
+			inputAlert: &alertmanager.Data{
+				Alerts: alertmanager.Alerts{
+					{Status: "resolved"},
+				},
+				Status:      alertmanager.AlertResolved,
+				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
+			},
+			initJira: func(t *testing.T) *fakeJira {
+				f := newTestFakeJira()
+				_, _, err := f.Create(&jira.Issue{
+					ID:  "1",
+					Key: "1",
+					Fields: &jira.IssueFields{
+						Project:     jira.Project{Key: testReceiverConfigAutoResolve().Project},
+						Labels:      []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
+						Unknowns:    tcontainer.MarshalMap{},
+						Summary:     "[FIRING:2] b d ",
+						Description: "1",
+					},
+				})
+				require.NoError(t, err)
+				return f
+			},
+			expectedJiraIssues: map[string]*jira.Issue{
+				"1": {
+					ID:  "1",
+					Key: "1",
+					Fields: &jira.IssueFields{
+						Project: jira.Project{Key: testReceiverConfigAutoResolve().Project},
+						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
+						Status: &jira.Status{
+							StatusCategory: jira.StatusCategory{Key: "Done"},
+						},
+						Unknowns:    tcontainer.MarshalMap{},
+						Summary:     "[RESOLVED] b d ", // Title changed.
+						Description: "1",
 					},
 				},
 			},

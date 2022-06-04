@@ -111,6 +111,8 @@ type receiverTestConfig struct {
 	WontFixResolution string `yaml:"wont_fix_resolution,omitempty"`
 	AddGroupLabels    bool   `yaml:"add_group_labels,omitempty"`
 
+	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
+
 	// TODO(rporres): Add support for these.
 	// Fields            map[string]interface{} `yaml:"fields,omitempty"`
 	// Components        []string               `yaml:"components,omitempty"`
@@ -290,6 +292,7 @@ func TestAuthKeysOverrides(t *testing.T) {
 // No tests for auth keys here. They will be handled separately
 func TestReceiverOverrides(t *testing.T) {
 	fifteenHoursToDuration, err := ParseDuration("15h")
+	autoResolve := AutoResolve{State: "Done"}
 	require.NoError(t, err)
 
 	// We'll override one key at a time and check the value in the receiver.
@@ -308,8 +311,9 @@ func TestReceiverOverrides(t *testing.T) {
 		{"Description", "A nice description", "A nice description"},
 		{"WontFixResolution", "Won't Fix", "Won't Fix"},
 		{"AddGroupLabels", false, false},
+		{"AutoResolve", &AutoResolve{State: "Done"}, &autoResolve},
 	} {
-		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels"}
+		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels", "AutoResolve"}
 		defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), optionalFields)
 		receiverConfig := newReceiverTestConfig([]string{"Name"}, optionalFields)
 
@@ -361,6 +365,8 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 		var value reflect.Value
 		if name == "AddGroupLabels" {
 			value = reflect.ValueOf(true)
+		} else if name == "AutoResolve" {
+			value = reflect.ValueOf(&AutoResolve{State: "Done"})
 		} else {
 			value = reflect.ValueOf(name)
 		}
@@ -398,4 +404,42 @@ func removeFromStrSlice(strSlice []string, element string) []string {
 func mandatoryReceiverFields() []string {
 	return []string{"Name", "APIURL", "User", "Password", "Project",
 		"IssueType", "Summary", "ReopenState", "ReopenDuration"}
+}
+
+func TestAutoResolveConfigReceiver(t *testing.T) {
+	mandatory := mandatoryReceiverFields()
+	minimalReceiverTestConfig := &receiverTestConfig{
+		Name: "test",
+		AutoResolve: &AutoResolve{
+			State: "",
+		},
+	}
+
+	defaultsConfig := newReceiverTestConfig(mandatory, []string{})
+	config := testConfig{
+		Defaults:  defaultsConfig,
+		Receivers: []*receiverTestConfig{minimalReceiverTestConfig},
+		Template:  "jiralert.tmpl",
+	}
+
+	configErrorTestRunner(t, config, "bad config in receiver \"test\", 'auto_resolve' was defined with empty 'state' field")
+
+}
+
+func TestAutoResolveConfigDefault(t *testing.T) {
+	mandatory := mandatoryReceiverFields()
+	minimalReceiverTestConfig := newReceiverTestConfig([]string{"Name"}, []string{"AutoResolve"})
+
+	defaultsConfig := newReceiverTestConfig(mandatory, []string{})
+	defaultsConfig.AutoResolve = &AutoResolve{
+		State: "",
+	}
+	config := testConfig{
+		Defaults:  defaultsConfig,
+		Receivers: []*receiverTestConfig{minimalReceiverTestConfig},
+		Template:  "jiralert.tmpl",
+	}
+
+	configErrorTestRunner(t, config, "bad config in defaults section: state cannot be empty")
+
 }

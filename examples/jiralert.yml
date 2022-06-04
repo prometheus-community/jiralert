@@ -47,6 +47,10 @@ receivers:
       customfield_10002: {"value": "red"}
       # MultiSelect
       customfield_10003: [{"value": "red"}, {"value": "blue"}, {"value": "green"}]
+    #
+    # Automatically resolve jira issues when alert is resolved. Optional. If declared, ensure state is not an empty string.
+    auto_resolve:
+      state: 'Done' 
 
 # File containing template definitions. Required.
 template: jiralert.tmpl

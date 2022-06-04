@@ -101,6 +101,15 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 		}
 
 		if len(data.Alerts.Firing()) == 0 {
+			if r.conf.AutoResolve != nil {
+				level.Debug(r.logger).Log("msg", "no firing alert; resolving issue", "key", issue.Key, "label", issueGroupLabel)
+				retry, err := r.resolveIssue(issue.Key)
+				if err != nil {
+					return retry, err
+				}
+				return false, nil
+			}
+
 			level.Debug(r.logger).Log("msg", "no firing alert; summary checked, nothing else to do.", "key", issue.Key, "label", issueGroupLabel)
 			return false, nil
 		}
@@ -343,24 +352,7 @@ func (r *Receiver) updateDescription(issueKey string, description string) (bool,
 }
 
 func (r *Receiver) reopen(issueKey string) (bool, error) {
-	transitions, resp, err := r.client.GetTransitions(issueKey)
-	if err != nil {
-		return handleJiraErrResponse("Issue.GetTransitions", resp, err, r.logger)
-	}
-
-	for _, t := range transitions {
-		if t.Name == r.conf.ReopenState {
-			level.Debug(r.logger).Log("msg", "transition (reopen)", "key", issueKey, "transitionID", t.ID)
-			resp, err = r.client.DoTransition(issueKey, t.ID)
-			if err != nil {
-				return handleJiraErrResponse("Issue.DoTransition", resp, err, r.logger)
-			}
-
-			level.Debug(r.logger).Log("msg", "reopened", "key", issueKey)
-			return false, nil
-		}
-	}
-	return false, errors.Errorf("JIRA state %q does not exist or no transition possible for %s", r.conf.ReopenState, issueKey)
+	return r.doTransition(issueKey, r.conf.ReopenState)
 }
 
 func (r *Receiver) create(issue *jira.Issue) (bool, error) {
@@ -389,4 +381,30 @@ func handleJiraErrResponse(api string, resp *jira.Response, err error, logger lo
 		return retry, errors.Errorf("JIRA request %s returned status %s, body %q", resp.Request.URL, resp.Status, string(body))
 	}
 	return false, errors.Wrapf(err, "JIRA request %s failed", api)
+}
+
+func (r *Receiver) resolveIssue(issueKey string) (bool, error) {
+	return r.doTransition(issueKey, r.conf.AutoResolve.State)
+}
+
+func (r *Receiver) doTransition(issueKey string, transitionState string) (bool, error) {
+	transitions, resp, err := r.client.GetTransitions(issueKey)
+	if err != nil {
+		return handleJiraErrResponse("Issue.GetTransitions", resp, err, r.logger)
+	}
+
+	for _, t := range transitions {
+		if t.Name == transitionState {
+			level.Debug(r.logger).Log("msg", fmt.Sprintf("transition %s", transitionState), "key", issueKey, "transitionID", t.ID)
+			resp, err = r.client.DoTransition(issueKey, t.ID)
+			if err != nil {
+				return handleJiraErrResponse("Issue.DoTransition", resp, err, r.logger)
+			}
+
+			level.Debug(r.logger).Log("msg", transitionState, "key", issueKey)
+			return false, nil
+		}
+	}
+	return false, errors.Errorf("JIRA state %q does not exist or no transition possible for %s", r.conf.ReopenState, issueKey)
+
 }
