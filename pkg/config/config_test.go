@@ -93,6 +93,23 @@ func TestLoadFile(t *testing.T) {
 
 }
 
+// Checks if the env var substitution is happening correctly in the loaded file
+func TestEnvSubstitution(t *testing.T) {
+
+	config := "user: $(JA_USER)"
+	os.Setenv("JA_USER", "user")
+
+	content, err := substituteEnvVars([]byte(config), log.NewNopLogger())
+	expected := "user: user"
+	require.NoError(t, err)
+	require.Equal(t, string(content), expected)
+
+	config = "user: $(JA_MISSING)"
+	_, err = substituteEnvVars([]byte(config), log.NewNopLogger())
+	require.Error(t, err)
+
+}
+
 // A test version of the ReceiverConfig struct to create test yaml fixtures.
 type receiverTestConfig struct {
 	Name                string `yaml:"name,omitempty"`
