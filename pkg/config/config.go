@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -64,6 +65,12 @@ func LoadFile(filename string, logger log.Logger) (*Config, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+
+	content, err = substituteEnvVars(content, logger)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	cfg, err := Load(string(content))
 	if err != nil {
 		return nil, nil, err
@@ -71,6 +78,27 @@ func LoadFile(filename string, logger log.Logger) (*Config, []byte, error) {
 
 	resolveFilepaths(filepath.Dir(filename), cfg, logger)
 	return cfg, content, nil
+}
+
+// expand env variables $(var) from the config file
+// taken from https://github.dev/thanos-io/thanos/blob/296c4ab4baf2c8dd6abdf2649b0660ac77505e63/pkg/reloader/reloader.go#L445-L462 by https://github.com/fabxc
+func substituteEnvVars(b []byte, logger log.Logger) (r []byte, err error) {
+	var envRe = regexp.MustCompile(`\$\(([a-zA-Z_0-9]+)\)`)
+	r = envRe.ReplaceAllFunc(b, func(n []byte) []byte {
+		if err != nil {
+			return nil
+		}
+
+		n = n[2 : len(n)-1]
+
+		v, ok := os.LookupEnv(string(n))
+		if !ok {
+			err = fmt.Errorf("Missing env variable: %q", n)
+			return nil
+		}
+		return []byte(v)
+	})
+	return r, err
 }
 
 // resolveFilepaths joins all relative paths in a configuration
