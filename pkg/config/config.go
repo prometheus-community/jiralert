@@ -358,7 +358,7 @@ var durationRE = regexp.MustCompile("^([0-9]+)(y|w|d|h|m|s|ms)$")
 func ParseDuration(durationStr string) (Duration, error) {
 	matches := durationRE.FindStringSubmatch(durationStr)
 	if len(matches) != 3 {
-		return 0, fmt.Errorf("not a valid duration string: %q", durationStr)
+		return Duration(time.Duration(0)), fmt.Errorf("not a valid duration string: %q", durationStr)
 	}
 	var (
 		n, _ = strconv.Atoi(matches[1])
@@ -380,7 +380,7 @@ func ParseDuration(durationStr string) (Duration, error) {
 	case "ms":
 		// Value already correct
 	default:
-		return 0, fmt.Errorf("invalid time unit in duration string: %q", unit)
+		return Duration(time.Duration(0)), fmt.Errorf("invalid time unit in duration string: %q", unit)
 	}
 	return Duration(dur), nil
 }

@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/andygrunwald/go-jira"
+	jira "github.com/andygrunwald/go-jira"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
@@ -178,6 +178,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 	if len(r.conf.Components) > 0 {
 		issue.Fields.Components = make([]*jira.Component, 0, len(r.conf.Components))
 		for _, component := range r.conf.Components {
+			//nolint:typecheck // lint flags issueComp as not being used, even though it's referenced below.
 			issueComp, err := r.tmpl.Execute(component, data)
 			if err != nil {
 				return false, errors.Wrap(err, "render issue component")
