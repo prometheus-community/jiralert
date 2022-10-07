@@ -10,21 +10,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package notify
 
 import (
 	"bytes"
 	"crypto/sha512"
 	"fmt"
-	"github.com/andygrunwald/go-jira"
 	"io"
 	"reflect"
 	"strings"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
+	"github.com/andygrunwald/go-jira"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus-community/jiralert/pkg/alertmanager"
 	"github.com/prometheus-community/jiralert/pkg/config"
