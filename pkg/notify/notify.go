@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/andygrunwald/go-jira"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus-community/jiralert/pkg/alertmanager"
 	"github.com/prometheus-community/jiralert/pkg/config"
@@ -261,12 +261,11 @@ func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string 
 	// old default behavior
 	buf := bytes.NewBufferString("ALERT{")
 	for _, p := range groupLabels.SortedPairs() {
-		buf.WriteString(p.Name)
-		buf.WriteString(fmt.Sprintf("=%q,", p.Value))
+		fmt.Fprintf(buf, "%s=%q,", p.Name, p.Value)
 	}
 	buf.Truncate(buf.Len() - 1)
 	buf.WriteString("}")
-	return strings.Replace(buf.String(), " ", "", -1)
+	return strings.ReplaceAll(buf.String(), " ", "")
 }
 
 func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error) {
@@ -406,5 +405,4 @@ func (r *Receiver) doTransition(issueKey string, transitionState string) (bool, 
 		}
 	}
 	return false, errors.Errorf("JIRA state %q does not exist or no transition possible for %s", r.conf.ReopenState, issueKey)
-
 }

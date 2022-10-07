@@ -61,7 +61,7 @@ func main() {
 
 	flag.Parse()
 
-	var logger = setupLogger(*logLevel, *logFormat)
+	logger := setupLogger(*logLevel, *logFormat)
 	level.Info(logger).Log("msg", "starting JIRAlert", "version", Version)
 
 	if !*hashJiraLabel {
@@ -133,7 +133,6 @@ func main() {
 			return
 		}
 		requestTotal.WithLabelValues(conf.Name, "200").Inc()
-
 	})
 
 	http.HandleFunc("/", HomeHandlerFunc())

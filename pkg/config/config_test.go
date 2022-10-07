@@ -89,12 +89,10 @@ func TestLoadFile(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, testConf, string(content))
-
 }
 
 // Checks if the env var substitution is happening correctly in the loaded file
 func TestEnvSubstitution(t *testing.T) {
-
 	config := "user: $(JA_USER)"
 	os.Setenv("JA_USER", "user")
 
@@ -106,7 +104,6 @@ func TestEnvSubstitution(t *testing.T) {
 	config = "user: $(JA_MISSING)"
 	_, err = substituteEnvVars([]byte(config), log.NewNopLogger())
 	require.Error(t, err)
-
 }
 
 // A test version of the ReceiverConfig struct to create test yaml fixtures.
@@ -186,7 +183,6 @@ func TestRequiredReceiverConfigKeys(t *testing.T) {
 		}
 		configErrorTestRunner(t, config, test.errorMessage)
 	}
-
 }
 
 // Auth keys error scenarios.
@@ -352,7 +348,6 @@ func TestReceiverOverrides(t *testing.T) {
 		configValue := reflect.ValueOf(receiver).Elem().FieldByName(test.overrideField).Interface()
 		require.Equal(t, configValue, test.expectedValue)
 	}
-
 }
 
 // TODO(bwplotka, rporres). Add more tests:
@@ -366,11 +361,12 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 
 	for _, name := range mandatory {
 		var value reflect.Value
-		if name == "APIURL" {
+		switch name {
+		case "APIURL":
 			value = reflect.ValueOf("https://jiralert.atlassian.net")
-		} else if name == "ReopenDuration" {
+		case "ReopenDuration":
 			value = reflect.ValueOf("30d")
-		} else {
+		default:
 			value = reflect.ValueOf(name)
 		}
 
@@ -379,11 +375,12 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 
 	for _, name := range optional {
 		var value reflect.Value
-		if name == "AddGroupLabels" {
+		switch name {
+		case "AddGroupLabels":
 			value = reflect.ValueOf(true)
-		} else if name == "AutoResolve" {
+		case "AutoResolve":
 			value = reflect.ValueOf(&AutoResolve{State: "Done"})
-		} else {
+		default:
 			value = reflect.ValueOf(name)
 		}
 
@@ -418,8 +415,10 @@ func removeFromStrSlice(strSlice []string, element string) []string {
 // Returns mandatory receiver fields to be used creating test config structs.
 // It does not include PAT auth, those tests will be created separately.
 func mandatoryReceiverFields() []string {
-	return []string{"Name", "APIURL", "User", "Password", "Project",
-		"IssueType", "Summary", "ReopenState", "ReopenDuration"}
+	return []string{
+		"Name", "APIURL", "User", "Password", "Project",
+		"IssueType", "Summary", "ReopenState", "ReopenDuration",
+	}
 }
 
 func TestAutoResolveConfigReceiver(t *testing.T) {
@@ -439,7 +438,6 @@ func TestAutoResolveConfigReceiver(t *testing.T) {
 	}
 
 	configErrorTestRunner(t, config, "bad config in receiver \"test\", 'auto_resolve' was defined with empty 'state' field")
-
 }
 
 func TestAutoResolveConfigDefault(t *testing.T) {
@@ -457,5 +455,4 @@ func TestAutoResolveConfigDefault(t *testing.T) {
 	}
 
 	configErrorTestRunner(t, config, "bad config in defaults section: state cannot be empty")
-
 }
