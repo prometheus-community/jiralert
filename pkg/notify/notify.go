@@ -84,7 +84,20 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 		return false, errors.Wrap(err, "render issue description")
 	}
 
+	// Issue already exists.
 	if issue != nil {
+
+		// Issue is closed and should be reopened
+		if issue.Fields.Status.StatusCategory.Key == "done" && issue.Fields.Resolution.Name != r.conf.WontFixResolution {
+			level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", issueGroupLabel)
+			retry, err := r.reopen(issue.Key)
+			if err != nil {
+				return retry, err
+			}
+			// Issue is not dynamically updated, so we need to modify the Resolution to avoid creating duplicates on a "won't fix" situation
+			issue.Fields.Resolution = nil
+		}
+
 		// Update summary if needed.
 		if issue.Fields.Summary != issueSummary {
 			retry, err := r.updateSummary(issue.Key, issueSummary)
@@ -93,6 +106,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 			}
 		}
 
+		// Update description if needed.
 		if issue.Fields.Description != issueDesc {
 			retry, err := r.updateDescription(issue.Key, issueDesc)
 			if err != nil {
@@ -100,6 +114,14 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 			}
 		}
 
+		// Issue is set as won't fix. Discard.
+		if r.conf.WontFixResolution != "" && issue.Fields.Resolution != nil &&
+			issue.Fields.Resolution.Name == r.conf.WontFixResolution {
+			level.Info(r.logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, "label", issueGroupLabel, "resolution", issue.Fields.Resolution.Name)
+			return false, nil
+		}
+
+		// Alert has been resolved. Close issue.
 		if len(data.Alerts.Firing()) == 0 {
 			if r.conf.AutoResolve != nil {
 				level.Debug(r.logger).Log("msg", "no firing alert; resolving issue", "key", issue.Key, "label", issueGroupLabel)
@@ -115,19 +137,11 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 		}
 
 		// The set of JIRA status categories is fixed, this is a safe check to make.
-		if issue.Fields.Status.StatusCategory.Key != "done" {
+		if issue.Fields.Resolution == nil {
 			level.Debug(r.logger).Log("msg", "issue is unresolved, all is done", "key", issue.Key, "label", issueGroupLabel)
 			return false, nil
 		}
 
-		if r.conf.WontFixResolution != "" && issue.Fields.Resolution != nil &&
-			issue.Fields.Resolution.Name == r.conf.WontFixResolution {
-			level.Info(r.logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, "label", issueGroupLabel, "resolution", issue.Fields.Resolution.Name)
-			return false, nil
-		}
-
-		level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", issueGroupLabel)
-		return r.reopen(issue.Key)
 	}
 
 	if len(data.Alerts.Firing()) == 0 {
