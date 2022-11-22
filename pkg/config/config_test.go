@@ -13,15 +13,14 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"reflect"
 	"testing"
 
-	"github.com/go-kit/kit/log"
+	"github.com/go-kit/log"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v3"
 )
 
 const testConf = `
@@ -80,11 +79,11 @@ template: jiralert.tmpl
 
 // Generic test that loads the testConf with no errors.
 func TestLoadFile(t *testing.T) {
-	dir, err := ioutil.TempDir("", "test_jiralert")
+	dir, err := os.MkdirTemp("", "test_jiralert")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, os.RemoveAll(dir)) }()
 
-	require.NoError(t, ioutil.WriteFile(path.Join(dir, "config.yaml"), []byte(testConf), os.ModePerm))
+	require.NoError(t, os.WriteFile(path.Join(dir, "config.yaml"), []byte(testConf), os.ModePerm))
 
 	_, content, err := LoadFile(path.Join(dir, "config.yaml"), log.NewNopLogger())
 
