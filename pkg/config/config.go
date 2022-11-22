@@ -15,7 +15,6 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -24,11 +23,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 
 	"github.com/trivago/tgo/tcontainer"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // Secret is a string that must not be revealed on marshaling.
@@ -61,7 +60,7 @@ func Load(s string) (*Config, error) {
 // LoadFile parses the given YAML file into a Config.
 func LoadFile(filename string, logger log.Logger) (*Config, []byte, error) {
 	level.Info(logger).Log("msg", "loading configuration", "path", filename)
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, nil, err
 	}
