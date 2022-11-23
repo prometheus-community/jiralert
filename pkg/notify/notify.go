@@ -17,12 +17,11 @@ import (
 	"bytes"
 	"crypto/sha512"
 	"fmt"
-	"github.com/andygrunwald/go-jira"
-	"io"
 	"reflect"
 	"strings"
 	"time"
 
+	"github.com/andygrunwald/go-jira"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
@@ -377,9 +376,7 @@ func handleJiraErrResponse(api string, resp *jira.Response, err error, logger lo
 
 	if resp != nil && resp.StatusCode/100 != 2 {
 		retry := resp.StatusCode == 500 || resp.StatusCode == 503
-		body, _ := io.ReadAll(resp.Body)
-		// go-jira error message is not particularly helpful, replace it
-		return retry, errors.Errorf("JIRA request %s returned status %s, body %q", resp.Request.URL, resp.Status, string(body))
+		return retry, errors.Errorf("JIRA request %s returned status %s, error %q", resp.Request.URL, resp.Status, err)
 	}
 	return false, errors.Wrapf(err, "JIRA request %s failed", api)
 }
