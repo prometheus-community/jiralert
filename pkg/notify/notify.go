@@ -375,7 +375,7 @@ func handleJiraErrResponse(api string, resp *jira.Response, err error, logger lo
 	}
 
 	if resp != nil && resp.StatusCode/100 != 2 {
-		retry := resp.StatusCode == 500 || resp.StatusCode == 503
+		retry := resp.StatusCode == 500 || resp.StatusCode == 503 || resp.StatusCode == 429
 		return retry, errors.Errorf("JIRA request %s returned status %s, error %q", resp.Request.URL, resp.Status, err)
 	}
 	return false, errors.Wrapf(err, "JIRA request %s failed", api)
