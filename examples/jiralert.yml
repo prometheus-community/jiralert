@@ -14,6 +14,8 @@ defaults:
   summary: '{{ template "jira.summary" . }}'
   # Go template invocation for generating the description. Optional.
   description: '{{ template "jira.description" . }}'
+  # Enables reopening existing issues. Optional. Default is true.
+  reopen_enabled: true
   # State to transition into when reopening a closed issue. Required.
   reopen_state: "To Do"
   # Do not reopen issues with this resolution. Optional.
@@ -50,7 +52,7 @@ receivers:
     #
     # Automatically resolve jira issues when alert is resolved. Optional. If declared, ensure state is not an empty string.
     auto_resolve:
-      state: 'Done' 
+      state: 'Done'
 
 # File containing template definitions. Required.
 template: jiralert.tmpl

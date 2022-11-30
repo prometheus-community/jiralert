@@ -1,6 +1,6 @@
 # JIRAlert
-[![Build Status](https://github.com/prometheus-community/jiralert/workflows/test/badge.svg?branch=master)](https://github.com/prometheus-community/jiralert/actions?query=workflow%3Atest) 
-[![Go Report Card](https://goreportcard.com/badge/github.com/prometheus-community/jiralert)](https://goreportcard.com/report/github.com/prometheus-community/jiralert) 
+[![Build Status](https://github.com/prometheus-community/jiralert/workflows/test/badge.svg?branch=master)](https://github.com/prometheus-community/jiralert/actions?query=workflow%3Atest)
+[![Go Report Card](https://goreportcard.com/badge/github.com/prometheus-community/jiralert)](https://goreportcard.com/report/github.com/prometheus-community/jiralert)
 [![GoDoc](https://godoc.org/github.com/prometheus-community/jiralert?status.svg)](https://godoc.org/github.com/prometheus-community/jiralert)
 [![Slack](https://img.shields.io/badge/join%20slack-%23jiralert-brightgreen.svg)](https://slack.cncf.io/)
 [Prometheus Alertmanager](https://github.com/prometheus/alertmanager) webhook receiver for [JIRA](https://www.atlassian.com/software/jira).
@@ -9,7 +9,7 @@
 
 JIRAlert implements Alertmanager's webhook HTTP API and connects to one or more JIRA instances to create highly configurable JIRA issues. One issue is created per distinct group key — as defined by the [`group_by`](https://prometheus.io/docs/alerting/configuration/#<route>) parameter of Alertmanager's `route` configuration section — but not closed when the alert is resolved. The expectation is that a human will look at the issue, take any necessary action, then close it.  If no human interaction is necessary then it should probably not alert in the first place. This behavior however can be modified by setting `auto_resolve` section, which will resolve the jira issue with required state.
 
-If a corresponding JIRA issue already exists but is resolved, it is reopened. A JIRA transition must exist between the resolved state and the reopened state — as defined by `reopen_state` — or reopening will fail. Optionally a "won't fix" resolution — defined by `wont_fix_resolution` — may be defined: a JIRA issue with this resolution will not be reopened by JIRAlert.
+If a corresponding JIRA issue already exists but is resolved, it is reopened. A JIRA transition must exist between the resolved state and the reopened state — as defined by `reopen_state` — or reopening will fail. Optionally a "won't fix" resolution — defined by `wont_fix_resolution` — may be defined: a JIRA issue with this resolution will not be reopened by JIRAlert. This feature could be disable by setting to `false` `reopen_enabled` option.
 
 ## Usage
 
@@ -57,7 +57,7 @@ Each receiver must have a unique name (matching the Alertmanager receiver name),
 
 ## Alertmanager configuration
 
-To enable Alertmanager to talk to JIRAlert you need to configure a webhook in Alertmanager. You can do that by adding a webhook receiver to your Alertmanager configuration. 
+To enable Alertmanager to talk to JIRAlert you need to configure a webhook in Alertmanager. You can do that by adding a webhook receiver to your Alertmanager configuration.
 
 ```yaml
 receivers:
@@ -84,7 +84,7 @@ env DEBUG=1 ./jiralert
 
 ## Community
 
-*Jiralert* is an open source project and we welcome new contributors and members 
+*Jiralert* is an open source project and we welcome new contributors and members
 of the community. Here are ways to get in touch with the community:
 
 * Issue Tracker: [GitHub Issues](https://github.com/prometheus-community/jiralert/issues)
