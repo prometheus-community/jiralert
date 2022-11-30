@@ -17,11 +17,12 @@ import (
 	"bytes"
 	"crypto/sha512"
 	"fmt"
-	"github.com/andygrunwald/go-jira"
 	"io"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/andygrunwald/go-jira"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -299,6 +300,12 @@ func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error)
 }
 
 func (r *Receiver) findIssueToReuse(project string, issueGroupLabel string) (*jira.Issue, bool, error) {
+
+	if !*r.conf.ReopenEnabled {
+		level.Debug(r.logger).Log("msg", "reopening disabled, skipping search for existing issue")
+		return nil, false, nil
+	}
+
 	issue, retry, err := r.search(project, issueGroupLabel)
 	if err != nil {
 		return nil, retry, err

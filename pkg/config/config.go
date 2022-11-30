@@ -135,6 +135,7 @@ type ReceiverConfig struct {
 	Project        string    `yaml:"project" json:"project"`
 	IssueType      string    `yaml:"issue_type" json:"issue_type"`
 	Summary        string    `yaml:"summary" json:"summary"`
+	ReopenEnabled  *bool     `yaml:"reopen_enabled" json:"reopen_enabled"`
 	ReopenState    string    `yaml:"reopen_state" json:"reopen_state"`
 	ReopenDuration *Duration `yaml:"reopen_duration" json:"reopen_duration"`
 
@@ -212,6 +213,11 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		}
 	}
 
+	if c.Defaults.ReopenEnabled == nil {
+		var defaultReopenEnabled = false
+		c.Defaults.ReopenEnabled = &defaultReopenEnabled
+	}
+
 	for _, rc := range c.Receivers {
 		if rc.Name == "" {
 			return fmt.Errorf("missing name for receiver %+v", rc)
@@ -269,6 +275,11 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			}
 			rc.Summary = c.Defaults.Summary
 		}
+
+		if rc.ReopenEnabled == nil {
+			rc.ReopenEnabled = c.Defaults.ReopenEnabled
+		}
+
 		if rc.ReopenState == "" {
 			if c.Defaults.ReopenState == "" {
 				return fmt.Errorf("missing reopen_state in receiver %q", rc.Name)
