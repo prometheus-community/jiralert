@@ -128,8 +128,12 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 			return false, nil
 		}
 
-		level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", issueGroupLabel)
-		return r.reopen(issue.Key)
+		if r.conf.ReopenEnabled != nil && !*r.conf.ReopenEnabled {
+			level.Debug(r.logger).Log("msg", "reopening disabled, skipping search for existing issue")
+		} else {
+			level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", issueGroupLabel)
+			return r.reopen(issue.Key)
+		}
 	}
 
 	if len(data.Alerts.Firing()) == 0 {
@@ -300,11 +304,6 @@ func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error)
 }
 
 func (r *Receiver) findIssueToReuse(project string, issueGroupLabel string) (*jira.Issue, bool, error) {
-
-	if r.conf.ReopenEnabled != nil && !*r.conf.ReopenEnabled {
-		level.Debug(r.logger).Log("msg", "reopening disabled, skipping search for existing issue")
-		return nil, false, nil
-	}
 
 	issue, retry, err := r.search(project, issueGroupLabel)
 	if err != nil {
