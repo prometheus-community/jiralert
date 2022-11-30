@@ -301,7 +301,7 @@ func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error)
 
 func (r *Receiver) findIssueToReuse(project string, issueGroupLabel string) (*jira.Issue, bool, error) {
 
-	if !*r.conf.ReopenEnabled {
+	if r.conf.ReopenEnabled != nil && !*r.conf.ReopenEnabled {
 		level.Debug(r.logger).Log("msg", "reopening disabled, skipping search for existing issue")
 		return nil, false, nil
 	}
