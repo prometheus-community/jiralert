@@ -30,6 +30,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestAdditionalLabels(t *testing.T) {
+	r := Receiver{
+		conf: &config.ReceiverConfig{
+			AdditionalLabels: map[string]interface{}{},
+		},
+	}
+
+	r.conf.AdditionalLabels = map[string]interface{}{
+		"foo": "bar",
+	}
+
+	issueLabel, _ := r.constructIssueLabel(alertmanager.KV{"a": "b"})
+
+	require.Equal(t, `ALERT{a="b"}`, issueLabel[0])
+	require.Equal(t, `foo="bar"`, issueLabel[1])
+	require.Equal(t, `JIRALERT-HASH=6536991f7ce9c028fd657a21d258bc532670975f`, issueLabel[2])
+
+}
+
 func TestToGroupTicketLabel(t *testing.T) {
 	require.Equal(t, `JIRALERT{9897cb21a3d1ba47d2aab501ce9bc60b74bf65e26658f8e34a7fc81705e6b6eadfe6ad8edfe7c68142b3fe10f2c89127bd85e5f3687fe6b9ff1eff4b3f71dd49}`, toGroupTicketLabel(alertmanager.KV{"a": "B", "C": "d"}, true))
 	require.Equal(t, `ALERT{C="d",a="B"}`, toGroupTicketLabel(alertmanager.KV{"a": "B", "C": "d"}, false))

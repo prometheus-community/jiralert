@@ -148,6 +148,9 @@ type ReceiverConfig struct {
 	// Label copy settings
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
 
+	// Additional labels
+	AdditionalLabels map[string]interface{} `yaml:"additional_labels" json:"additional_labels"`
+
 	// Flag to auto-resolve opened issue when the alert is resolved.
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
 
