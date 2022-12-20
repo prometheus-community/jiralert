@@ -24,7 +24,7 @@ jobs:
       with:
         go-version: 1.19
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag crikke95/jiralert:1.0.1
+      run: docker build . --file Dockerfile --tag crikke95/jiralert:${{github.event.inputs.version}}
     - name: Docker push
-      run: docker push crikke95:jiralert:${{github.event.inputs.version}}
+      run: docker push crikke95/jiralert:${{github.event.inputs.version}}
     
