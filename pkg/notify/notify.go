@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	jiraHashLabel = "JIRALERT-HASH"
+	jiraHashLabel = "Jiralert-checksum"
 )
 
 // TODO(bwplotka): Consider renaming this package to ticketer.
@@ -65,43 +65,16 @@ func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Templa
 	return &Receiver{logger: logger, conf: c, tmpl: t, client: client, timeNow: time.Now}
 }
 
-func (r *Receiver) constructIssueLabel(groupLabels alertmanager.KV) ([]string, error) {
+func toChecksumTicketLabel(labels []string) string {
 
-	labels := make([]string, 1)
-	labels[0] = toGroupTicketLabel(groupLabels, false)
-
-	for k, v := range r.conf.AdditionalLabels {
-		label := fmt.Sprintf("%s=%q", k, v)
-		label = strings.Replace(label, " ", "", -1)
-
-		labels = append(labels, label)
-	}
 	h := sha1.New()
 
 	for _, label := range labels {
-		h.Write([]byte(label))
+		_, _ = h.Write([]byte(label))
 	}
 
-	labels = append(labels, fmt.Sprintf("%s=%x", jiraHashLabel, h.Sum(nil)))
-
-	return labels, nil
+	return fmt.Sprintf("%s=%x", jiraHashLabel, h.Sum(nil))
 }
-
-//
-// todo:
-//
-// add slice issueLabels and append issueGroupLabel
-// add additional labels to issueLabels
-// findIssueToReuse should search for issueLabels instead of issueGroupLabel.
-//
-// should be able to check if label exist on alert, then add it to additionalLabels
-// if the label does not exist, then append empty string
-// when done, remove all empty strings from issueLabels
-//
-// yaml example:
-// additionalLabels:
-//   tenant: foo02
-//   policy_level:
 
 // Notify manages JIRA issues based on alertmanager webhook notify message.
 func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, error) {
@@ -110,10 +83,18 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 		return false, errors.Wrap(err, "generate project from template")
 	}
 
-	issueLabel, err := r.constructIssueLabel(data.GroupLabels)
-	hashLabel := issueLabel[len(issueLabel)-1]
+	labels := make([]string, 0)
 
-	issue, retry, err := r.findIssueToReuse(project, hashLabel)
+	if r.conf.AddCommonLabels {
+		for k, v := range data.CommonLabels {
+			labels = append(labels, fmt.Sprintf("%s=%q", k, v))
+		}
+		labels = append(labels, toChecksumTicketLabel(labels))
+	} else {
+		labels = append(labels, toGroupTicketLabel(data.GroupLabels, hashJiraLabel))
+	}
+
+	issue, retry, err := r.findIssueToReuse(project, labels[len(labels)-1])
 	if err != nil {
 		return retry, err
 	}
@@ -148,7 +129,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 
 		if len(data.Alerts.Firing()) == 0 {
 			if r.conf.AutoResolve != nil {
-				level.Debug(r.logger).Log("msg", "no firing alert; resolving issue", "key", issue.Key, "label", issueLabel)
+				level.Debug(r.logger).Log("msg", "no firing alert; resolving issue", "key", issue.Key, "label", labels)
 				retry, err := r.resolveIssue(issue.Key)
 				if err != nil {
 					return retry, err
@@ -156,32 +137,32 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 				return false, nil
 			}
 
-			level.Debug(r.logger).Log("msg", "no firing alert; summary checked, nothing else to do.", "key", issue.Key, "label", issueLabel)
+			level.Debug(r.logger).Log("msg", "no firing alert; summary checked, nothing else to do.", "key", issue.Key, "label", labels)
 			return false, nil
 		}
 
 		// The set of JIRA status categories is fixed, this is a safe check to make.
 		if issue.Fields.Status.StatusCategory.Key != "done" {
-			level.Debug(r.logger).Log("msg", "issue is unresolved, all is done", "key", issue.Key, "label", issueLabel)
+			level.Debug(r.logger).Log("msg", "issue is unresolved, all is done", "key", issue.Key, "label", labels)
 			return false, nil
 		}
 
 		if r.conf.WontFixResolution != "" && issue.Fields.Resolution != nil &&
 			issue.Fields.Resolution.Name == r.conf.WontFixResolution {
-			level.Info(r.logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, "label", issueLabel, "resolution", issue.Fields.Resolution.Name)
+			level.Info(r.logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, "label", labels, "resolution", issue.Fields.Resolution.Name)
 			return false, nil
 		}
 
-		level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", issueLabel)
+		level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", labels)
 		return r.reopen(issue.Key)
 	}
 
 	if len(data.Alerts.Firing()) == 0 {
-		level.Debug(r.logger).Log("msg", "no firing alert; nothing to do.", "label", issueLabel)
+		level.Debug(r.logger).Log("msg", "no firing alert; nothing to do.", "label", labels)
 		return false, nil
 	}
 
-	level.Info(r.logger).Log("msg", "no recent matching issue found, creating new issue", "label", issueLabel)
+	level.Info(r.logger).Log("msg", "no recent matching issue found, creating new issue", "label", labels)
 
 	issueType, err := r.tmpl.Execute(r.conf.IssueType, data)
 	if err != nil {
@@ -194,7 +175,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 			Type:        jira.IssueType{Name: issueType},
 			Description: issueDesc,
 			Summary:     issueSummary,
-			Labels:      issueLabel,
+			Labels:      labels,
 			Unknowns:    tcontainer.NewMarshalMap(),
 		},
 	}
