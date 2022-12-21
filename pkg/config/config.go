@@ -120,6 +120,15 @@ type AutoResolve struct {
 	State string `yaml:"state" json:"state"`
 }
 
+const (
+	// AlertGroup groups issues in jira by alertmanager group.
+	AlertGroup string = "AlertGroup"
+	// AlertRule groups issues in jira by the alertmanager AlertRule
+	AlertRule string = "AlertRule"
+	// Alert does not group firing alerts. Each firing alert will create its own issue in jira.
+	Alert string = "Alert"
+)
+
 // ReceiverConfig is the configuration for one receiver. It has a unique name and includes API access fields (url and
 // auth) and issue fields (required -- e.g. project, issue type -- and optional -- e.g. priority).
 type ReceiverConfig struct {
@@ -139,14 +148,19 @@ type ReceiverConfig struct {
 	ReopenDuration *Duration `yaml:"reopen_duration" json:"reopen_duration"`
 
 	// Optional issue fields
-	Priority          string                 `yaml:"priority" json:"priority"`
-	Description       string                 `yaml:"description" json:"description"`
-	WontFixResolution string                 `yaml:"wont_fix_resolution" json:"wont_fix_resolution"`
-	Fields            map[string]interface{} `yaml:"fields" json:"fields"`
-	Components        []string               `yaml:"components" json:"components"`
+	GroupIssueBy         string                 `yaml:"group_issue_by" json:"group_issue_by"`
+	IssueIdentifierLabel string                 `yaml:"issue_identifier_label" json:"issue_identifier_label"`
+	Priority             string                 `yaml:"priority" json:"priority"`
+	Description          string                 `yaml:"description" json:"description"`
+	WontFixResolution    string                 `yaml:"wont_fix_resolution" json:"wont_fix_resolution"`
+	Fields               map[string]interface{} `yaml:"fields" json:"fields"`
+	Components           []string               `yaml:"components" json:"components"`
 
 	// Label copy settings
-	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
+	AddGroupLabels  bool `yaml:"add_group_labels" json:"add_group_labels"`
+	AddCommonLabels bool `yaml:"add_common_labels" json:"add_common_labels"`
+
+	AdditionalIssueLabels map[string]string `yaml:"additional_labels,omitempty" json:"additional_labels,omitempty"`
 
 	// Flag to auto-resolve opened issue when the alert is resolved.
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
@@ -210,6 +224,10 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		if c.Defaults.AutoResolve.State == "" {
 			return fmt.Errorf("bad config in defaults section: state cannot be empty")
 		}
+	}
+
+	if c.Defaults.GroupIssueBy == "" {
+		c.Defaults.GroupIssueBy = AlertGroup
 	}
 
 	for _, rc := range c.Receivers {
@@ -283,6 +301,18 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		}
 
 		// Populate optional issue fields, where necessary.
+		if rc.GroupIssueBy == "" && c.Defaults.GroupIssueBy != "" {
+			rc.GroupIssueBy = c.Defaults.GroupIssueBy
+		}
+
+		// validate that GroupIssueBy is either Alert/AlertRule/AlertGroup
+		if rc.GroupIssueBy != Alert && rc.GroupIssueBy != AlertRule && rc.GroupIssueBy != AlertGroup {
+			return fmt.Errorf("bad config in receiver %q, 'group_issue_by' must be either Alert/AlertRule/AlertGroup", rc.Name)
+		}
+		if rc.IssueIdentifierLabel == "" && c.Defaults.IssueIdentifierLabel != "" {
+			rc.IssueIdentifierLabel = c.Defaults.IssueIdentifierLabel
+		}
+
 		if rc.Priority == "" && c.Defaults.Priority != "" {
 			rc.Priority = c.Defaults.Priority
 		}

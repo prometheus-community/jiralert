@@ -14,11 +14,12 @@ package notify
 
 import (
 	"fmt"
-	"github.com/andygrunwald/go-jira"
 	"os"
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/andygrunwald/go-jira"
 
 	"github.com/trivago/tgo/tcontainer"
 
@@ -186,6 +187,20 @@ func testReceiverConfigAutoResolve() *config.ReceiverConfig {
 		AutoResolve:       &autoResolve,
 	}
 }
+func testReceiverConfigAutoGroupByAlertRule() *config.ReceiverConfig {
+	reopen := config.Duration(1 * time.Hour)
+	autoResolve := config.AutoResolve{State: "Done"}
+	return &config.ReceiverConfig{
+		Project:              "abc",
+		Summary:              `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ index .CommonLabels "alertname" }}`,
+		ReopenDuration:       &reopen,
+		GroupIssueBy:         config.AlertRule,
+		IssueIdentifierLabel: `alert={{- index .CommonLabels "alertname" }}`,
+		ReopenState:          "reopened",
+		WontFixResolution:    "won't-fix",
+		AutoResolve:          &autoResolve,
+	}
+}
 
 func TestNotify_JIRAInteraction(t *testing.T) {
 	testNowTime := time.Now()
@@ -197,6 +212,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 		initJira           func(t *testing.T) *fakeJira
 		expectedJiraIssues map[string]*jira.Issue
 	}{
+
 		{
 			name:        "empty jira, new alert group",
 			inputConfig: testReceiverConfig1(),
@@ -531,6 +547,39 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 						Unknowns:    tcontainer.MarshalMap{},
 						Summary:     "[RESOLVED] b d ", // Title changed.
 						Description: "1",
+					},
+				},
+			},
+		},
+		{
+			name:        "group alerts by AlertRule",
+			inputConfig: testReceiverConfigAutoGroupByAlertRule(),
+			inputAlert: &alertmanager.Data{
+				Alerts: alertmanager.Alerts{
+					{
+						Status: alertmanager.AlertFiring,
+						Labels: alertmanager.KV{
+							"alertname": "foo",
+						},
+					},
+				},
+				Status:      alertmanager.AlertFiring,
+				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
+			},
+			initJira: func(t *testing.T) *fakeJira { return newTestFakeJira() },
+			expectedJiraIssues: map[string]*jira.Issue{
+				"1": {
+					ID:  "1",
+					Key: "1",
+					Fields: &jira.IssueFields{
+						Project: jira.Project{Key: testReceiverConfigAutoGroupByAlertRule().Project},
+						Labels:  []string{"alert=foo"},
+						Status: &jira.Status{
+							StatusCategory: jira.StatusCategory{Key: "NotDone"},
+						},
+						Unknowns:    tcontainer.MarshalMap{},
+						Summary:     "[FIRING:1] foo", // Title changed.
+						Description: "",
 					},
 				},
 			},

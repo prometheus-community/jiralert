@@ -10,6 +10,11 @@ defaults:
   issue_type: Bug
   # Issue priority. Optional.
   priority: Critical
+  # How jiraissues are created. Can by from AlertGroup, AlertRule or Alert.
+  # Optional (default: AlertGroup) 
+  group_issue_by: group|alertrule|alert
+  # The label used to lookup existing issue.
+  id_label: '{{ template "jira.id_label" . }}'
   # Go template invocation for generating the summary. Required.
   summary: '{{ template "jira.summary" . }}'
   # Go template invocation for generating the description. Optional.

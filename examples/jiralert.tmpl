@@ -8,3 +8,5 @@ Annotations:
 {{ end }}
 Source: {{ .GeneratorURL }}
 {{ end }}{{ end }}
+
+{{ define "jira.issueLabel" }} alert={{- index .CommonLabels "alertname" }}{{- end -}}

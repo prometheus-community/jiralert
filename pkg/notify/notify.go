@@ -17,11 +17,12 @@ import (
 	"bytes"
 	"crypto/sha512"
 	"fmt"
-	"github.com/andygrunwald/go-jira"
 	"io"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/andygrunwald/go-jira"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -59,16 +60,148 @@ func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Templa
 	return &Receiver{logger: logger, conf: c, tmpl: t, client: client, timeNow: time.Now}
 }
 
-// Notify manages JIRA issues based on alertmanager webhook notify message.
+// transforms alertmanager.Data to alertmanager.Data slice grouped by Alert
+func (r *Receiver) toAlert(d *alertmanager.Data) []alertmanager.Data {
+
+	slice := make([]alertmanager.Data, 0)
+	for _, a := range d.Alerts {
+
+		data := alertmanager.Data{
+			GroupKey:          d.GroupKey,
+			GroupLabels:       d.GroupLabels,
+			Status:            a.Status,
+			CommonLabels:      a.Labels,
+			CommonAnnotations: a.Annotations,
+			ExternalURL:       d.ExternalURL,
+			Alerts:            []alertmanager.Alert{a},
+			Version:           d.Version,
+			Receiver:          d.Receiver,
+		}
+		slice = append(slice, data)
+	}
+
+	return slice
+}
+
+// transforms alertmanager.Data to alertmanager.Data slice grouped by AlertRule
+func (r *Receiver) toAlertRule(d *alertmanager.Data) []alertmanager.Data {
+
+	alertsData := make(map[string]alertmanager.Data)
+
+	for _, alert := range d.Alerts {
+
+		name, ok := alert.Labels["alertname"]
+
+		if !ok {
+			continue
+		}
+
+		data, ok := alertsData[name]
+		if !ok {
+			data = alertmanager.Data{
+				GroupKey:          d.GroupKey,
+				GroupLabels:       d.GroupLabels,
+				Status:            alertmanager.AlertResolved,
+				ExternalURL:       d.ExternalURL,
+				Alerts:            make(alertmanager.Alerts, 0),
+				CommonAnnotations: make(alertmanager.KV),
+				CommonLabels:      make(alertmanager.KV),
+			}
+		}
+
+		data.Alerts = append(data.Alerts, alert)
+
+		if alert.Status == alertmanager.AlertFiring {
+			data.Status = alertmanager.AlertFiring
+		}
+
+		alertsData[name] = data
+	}
+
+	slice := make([]alertmanager.Data, len(alertsData))
+	// update common labels and annotations
+	// https://github.com/prometheus/alertmanager/blob/main/template/template.go#L331
+	idx := 0
+	for _, data := range alertsData {
+		if len(data.Alerts) >= 1 {
+			var (
+				commonLabels      = data.Alerts[0].Labels
+				commonAnnotations = data.Alerts[0].Annotations
+			)
+			for _, a := range data.Alerts[1:] {
+				if len(commonLabels) == 0 && len(commonAnnotations) == 0 {
+					break
+				}
+				for ln, lv := range commonLabels {
+					if a.Labels[ln] != lv {
+						delete(commonLabels, ln)
+					}
+				}
+				for an, av := range commonAnnotations {
+					if a.Annotations[an] != av {
+						delete(commonAnnotations, an)
+					}
+				}
+			}
+			for k, v := range commonLabels {
+				data.CommonLabels[string(k)] = string(v)
+			}
+			for k, v := range commonAnnotations {
+				data.CommonAnnotations[string(k)] = string(v)
+			}
+		}
+		slice[idx] = data
+		idx++
+	}
+
+	return slice
+}
+
 func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, error) {
+
+	var slice []alertmanager.Data
+	switch r.conf.GroupIssueBy {
+	// by default alerts are already grouped by AlertGroup, so no transformation is needed here
+	case config.AlertGroup, "":
+		slice = []alertmanager.Data{*data}
+	case config.AlertRule:
+		slice = r.toAlertRule(data)
+	case config.Alert:
+		slice = r.toAlert(data)
+	}
+
+	for _, d := range slice {
+		retry, err := r.notify(&d, hashJiraLabel)
+		if err != nil {
+			return retry, err
+		}
+	}
+
+	return false, nil
+}
+
+// Notify manages JIRA issues based on alertmanager webhook notify message.
+func (r *Receiver) notify(data *alertmanager.Data, hashJiraLabel bool) (bool, error) {
 	project, err := r.tmpl.Execute(r.conf.Project, data)
 	if err != nil {
 		return false, errors.Wrap(err, "generate project from template")
 	}
 
-	issueGroupLabel := toGroupTicketLabel(data.GroupLabels, hashJiraLabel)
+	labels := make([]string, 0)
 
-	issue, retry, err := r.findIssueToReuse(project, issueGroupLabel)
+	if r.conf.AddCommonLabels {
+		for _, pair := range data.CommonLabels.SortedPairs() {
+			labels = append(labels, fmt.Sprintf("%s=%q", pair.Name, pair.Value))
+		}
+	}
+
+	idLabel, err := r.toIssueIdentifierLabel(data, hashJiraLabel)
+	if err != nil {
+		return false, errors.Wrap(err, "build IssueIdentifierLabel")
+	}
+
+	labels = append(labels, idLabel)
+	issue, retry, err := r.findIssueToReuse(project, idLabel)
 	if err != nil {
 		return retry, err
 	}
@@ -103,7 +236,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 
 		if len(data.Alerts.Firing()) == 0 {
 			if r.conf.AutoResolve != nil {
-				level.Debug(r.logger).Log("msg", "no firing alert; resolving issue", "key", issue.Key, "label", issueGroupLabel)
+				level.Debug(r.logger).Log("msg", "no firing alert; resolving issue", "key", issue.Key, "label", labels)
 				retry, err := r.resolveIssue(issue.Key)
 				if err != nil {
 					return retry, err
@@ -111,32 +244,32 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 				return false, nil
 			}
 
-			level.Debug(r.logger).Log("msg", "no firing alert; summary checked, nothing else to do.", "key", issue.Key, "label", issueGroupLabel)
+			level.Debug(r.logger).Log("msg", "no firing alert; summary checked, nothing else to do.", "key", issue.Key, "label", labels)
 			return false, nil
 		}
 
 		// The set of JIRA status categories is fixed, this is a safe check to make.
 		if issue.Fields.Status.StatusCategory.Key != "done" {
-			level.Debug(r.logger).Log("msg", "issue is unresolved, all is done", "key", issue.Key, "label", issueGroupLabel)
+			level.Debug(r.logger).Log("msg", "issue is unresolved, all is done", "key", issue.Key, "label", labels)
 			return false, nil
 		}
 
 		if r.conf.WontFixResolution != "" && issue.Fields.Resolution != nil &&
 			issue.Fields.Resolution.Name == r.conf.WontFixResolution {
-			level.Info(r.logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, "label", issueGroupLabel, "resolution", issue.Fields.Resolution.Name)
+			level.Info(r.logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, "label", labels, "resolution", issue.Fields.Resolution.Name)
 			return false, nil
 		}
 
-		level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", issueGroupLabel)
+		level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", labels)
 		return r.reopen(issue.Key)
 	}
 
 	if len(data.Alerts.Firing()) == 0 {
-		level.Debug(r.logger).Log("msg", "no firing alert; nothing to do.", "label", issueGroupLabel)
+		level.Debug(r.logger).Log("msg", "no firing alert; nothing to do.", "label", labels)
 		return false, nil
 	}
 
-	level.Info(r.logger).Log("msg", "no recent matching issue found, creating new issue", "label", issueGroupLabel)
+	level.Info(r.logger).Log("msg", "no recent matching issue found, creating new issue", "label", labels)
 
 	issueType, err := r.tmpl.Execute(r.conf.IssueType, data)
 	if err != nil {
@@ -149,7 +282,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 			Type:        jira.IssueType{Name: issueType},
 			Description: issueDesc,
 			Summary:     issueSummary,
-			Labels:      []string{issueGroupLabel},
+			Labels:      labels,
 			Unknowns:    tcontainer.NewMarshalMap(),
 		},
 	}
@@ -241,6 +374,21 @@ func deepCopyWithTemplate(value interface{}, tmpl *template.Template, data inter
 	}
 }
 
+func (r *Receiver) toIssueIdentifierLabel(data *alertmanager.Data, hashJiraLabel bool) (string, error) {
+
+	// if toIssueIdentifierLabel not set, fallback to old behavior
+	if r.conf.IssueIdentifierLabel == "" {
+		return toGroupTicketLabel(data.GroupLabels, hashJiraLabel), nil
+	}
+
+	label, err := r.tmpl.Execute(r.conf.IssueIdentifierLabel, data)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.Replace(label, " ", "", -1), nil
+}
+
 // toGroupTicketLabel returns the group labels as a single string.
 // This is used to reference each ticket groups.
 // (old) default behavior: String is the form of an ALERT Prometheus metric name, with all spaces removed.
@@ -248,11 +396,12 @@ func deepCopyWithTemplate(value interface{}, tmpl *template.Template, data inter
 // hashing ensures that JIRA validation still accepts the output even
 // if the combined length of all groupLabel key-value pairs would be
 // longer than 255 chars
-func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string {
+func toGroupTicketLabel(labels alertmanager.KV, hashJiraLabel bool) string {
+
 	// new opt in behavior
 	if hashJiraLabel {
 		hash := sha512.New()
-		for _, p := range groupLabels.SortedPairs() {
+		for _, p := range labels.SortedPairs() {
 			kvString := fmt.Sprintf("%s=%q,", p.Name, p.Value)
 			_, _ = hash.Write([]byte(kvString)) // hash.Write can never return an error
 		}
@@ -261,7 +410,7 @@ func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string 
 
 	// old default behavior
 	buf := bytes.NewBufferString("ALERT{")
-	for _, p := range groupLabels.SortedPairs() {
+	for _, p := range labels.SortedPairs() {
 		buf.WriteString(p.Name)
 		buf.WriteString(fmt.Sprintf("=%q,", p.Value))
 	}
