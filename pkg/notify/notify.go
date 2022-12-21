@@ -15,13 +15,15 @@ package notify
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"crypto/sha512"
 	"fmt"
-	"github.com/andygrunwald/go-jira"
 	"io"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/andygrunwald/go-jira"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -30,6 +32,10 @@ import (
 	"github.com/prometheus-community/jiralert/pkg/config"
 	"github.com/prometheus-community/jiralert/pkg/template"
 	"github.com/trivago/tgo/tcontainer"
+)
+
+const (
+	jiraHashLabel = "Jiralert-checksum"
 )
 
 // TODO(bwplotka): Consider renaming this package to ticketer.
@@ -59,6 +65,17 @@ func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Templa
 	return &Receiver{logger: logger, conf: c, tmpl: t, client: client, timeNow: time.Now}
 }
 
+func toChecksumTicketLabel(labels []string) string {
+
+	h := sha1.New()
+
+	for _, label := range labels {
+		_, _ = h.Write([]byte(label))
+	}
+
+	return fmt.Sprintf("%s=%x", jiraHashLabel, h.Sum(nil))
+}
+
 // Notify manages JIRA issues based on alertmanager webhook notify message.
 func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, error) {
 	project, err := r.tmpl.Execute(r.conf.Project, data)
@@ -66,9 +83,18 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 		return false, errors.Wrap(err, "generate project from template")
 	}
 
-	issueGroupLabel := toGroupTicketLabel(data.GroupLabels, hashJiraLabel)
+	labels := make([]string, 0)
 
-	issue, retry, err := r.findIssueToReuse(project, issueGroupLabel)
+	if r.conf.AddCommonLabels {
+		for _, pair := range data.CommonLabels.SortedPairs() {
+			labels = append(labels, fmt.Sprintf("%s=%q", pair.Name, pair.Value))
+		}
+		labels = append(labels, toChecksumTicketLabel(labels))
+	} else {
+		labels = append(labels, toGroupTicketLabel(data.GroupLabels, hashJiraLabel))
+	}
+
+	issue, retry, err := r.findIssueToReuse(project, labels[len(labels)-1])
 	if err != nil {
 		return retry, err
 	}
@@ -103,7 +129,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 
 		if len(data.Alerts.Firing()) == 0 {
 			if r.conf.AutoResolve != nil {
-				level.Debug(r.logger).Log("msg", "no firing alert; resolving issue", "key", issue.Key, "label", issueGroupLabel)
+				level.Debug(r.logger).Log("msg", "no firing alert; resolving issue", "key", issue.Key, "label", labels)
 				retry, err := r.resolveIssue(issue.Key)
 				if err != nil {
 					return retry, err
@@ -111,32 +137,32 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 				return false, nil
 			}
 
-			level.Debug(r.logger).Log("msg", "no firing alert; summary checked, nothing else to do.", "key", issue.Key, "label", issueGroupLabel)
+			level.Debug(r.logger).Log("msg", "no firing alert; summary checked, nothing else to do.", "key", issue.Key, "label", labels)
 			return false, nil
 		}
 
 		// The set of JIRA status categories is fixed, this is a safe check to make.
 		if issue.Fields.Status.StatusCategory.Key != "done" {
-			level.Debug(r.logger).Log("msg", "issue is unresolved, all is done", "key", issue.Key, "label", issueGroupLabel)
+			level.Debug(r.logger).Log("msg", "issue is unresolved, all is done", "key", issue.Key, "label", labels)
 			return false, nil
 		}
 
 		if r.conf.WontFixResolution != "" && issue.Fields.Resolution != nil &&
 			issue.Fields.Resolution.Name == r.conf.WontFixResolution {
-			level.Info(r.logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, "label", issueGroupLabel, "resolution", issue.Fields.Resolution.Name)
+			level.Info(r.logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, "label", labels, "resolution", issue.Fields.Resolution.Name)
 			return false, nil
 		}
 
-		level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", issueGroupLabel)
+		level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", labels)
 		return r.reopen(issue.Key)
 	}
 
 	if len(data.Alerts.Firing()) == 0 {
-		level.Debug(r.logger).Log("msg", "no firing alert; nothing to do.", "label", issueGroupLabel)
+		level.Debug(r.logger).Log("msg", "no firing alert; nothing to do.", "label", labels)
 		return false, nil
 	}
 
-	level.Info(r.logger).Log("msg", "no recent matching issue found, creating new issue", "label", issueGroupLabel)
+	level.Info(r.logger).Log("msg", "no recent matching issue found, creating new issue", "label", labels)
 
 	issueType, err := r.tmpl.Execute(r.conf.IssueType, data)
 	if err != nil {
@@ -149,7 +175,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 			Type:        jira.IssueType{Name: issueType},
 			Description: issueDesc,
 			Summary:     issueSummary,
-			Labels:      []string{issueGroupLabel},
+			Labels:      labels,
 			Unknowns:    tcontainer.NewMarshalMap(),
 		},
 	}
@@ -249,6 +275,7 @@ func deepCopyWithTemplate(value interface{}, tmpl *template.Template, data inter
 // if the combined length of all groupLabel key-value pairs would be
 // longer than 255 chars
 func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string {
+
 	// new opt in behavior
 	if hashJiraLabel {
 		hash := sha512.New()

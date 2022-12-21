@@ -146,7 +146,8 @@ type ReceiverConfig struct {
 	Components        []string               `yaml:"components" json:"components"`
 
 	// Label copy settings
-	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
+	AddGroupLabels  bool `yaml:"add_group_labels" json:"add_group_labels"`
+	AddCommonLabels bool `yaml:"add_common_labels" json:"add_common_labels"`
 
 	// Flag to auto-resolve opened issue when the alert is resolved.
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
