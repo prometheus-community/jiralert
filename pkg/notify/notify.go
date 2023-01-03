@@ -89,11 +89,9 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 		for _, pair := range data.CommonLabels.SortedPairs() {
 			labels = append(labels, fmt.Sprintf("%s=%q", pair.Name, pair.Value))
 		}
-		labels = append(labels, toChecksumTicketLabel(labels))
-	} else {
-		labels = append(labels, toGroupTicketLabel(data.GroupLabels, hashJiraLabel))
 	}
 
+	labels = append(labels, toGroupTicketLabel(data.GroupLabels, hashJiraLabel))
 	issue, retry, err := r.findIssueToReuse(project, labels[len(labels)-1])
 	if err != nil {
 		return retry, err
