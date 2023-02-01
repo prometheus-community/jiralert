@@ -176,7 +176,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 
 	if r.conf.AddGroupLabels {
 		for k, v := range data.GroupLabels {
-			issue.Fields.Labels = append(issue.Fields.Labels, fmt.Sprintf("%s=%q", k, v))
+			issue.Fields.Labels = append(issue.Fields.Labels, fmt.Sprintf("%s=%.200q", k, v))
 		}
 	}
 
