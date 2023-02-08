@@ -1,0 +1,29 @@
+name: Docker Image CI
+
+on: 
+  workflow_dispatch:
+    inputs: 
+      version:
+        required: true
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Docker Login
+      # You may pin to the exact commit or the version.
+      # uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
+      uses: docker/login-action@v2.0.0
+      with:
+        username: ${{secrets.DOCKERHUB_USERNAME}}
+        password: ${{secrets.DOCKERHUB_PASSWORD}}
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag crikke95/jiralert:${{github.event.inputs.version}}
+    - name: Docker push
+      run: docker push crikke95/jiralert:${{github.event.inputs.version}}
