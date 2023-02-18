@@ -60,7 +60,7 @@ func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Templa
 }
 
 // Notify manages JIRA issues based on alertmanager webhook notify message.
-func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, error) {
+func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateContentDisabled bool) (bool, error) {
 	project, err := r.tmpl.Execute(r.conf.Project, data)
 	if err != nil {
 		return false, errors.Wrap(err, "generate project from template")
@@ -85,19 +85,21 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 		return false, errors.Wrap(err, "render issue description")
 	}
 
-	if issue != nil {
+	if issue != nil && !updateContentDisabled {
 		// Update summary if needed.
-		if issue.Fields.Summary != issueSummary {
-			retry, err := r.updateSummary(issue.Key, issueSummary)
-			if err != nil {
-				return retry, err
+		if !updateContentDisabled {
+			if issue.Fields.Summary != issueSummary {
+				retry, err := r.updateSummary(issue.Key, issueSummary)
+				if err != nil {
+					return retry, err
+				}
 			}
-		}
 
-		if issue.Fields.Description != issueDesc {
-			retry, err := r.updateDescription(issue.Key, issueDesc)
-			if err != nil {
-				return retry, err
+			if issue.Fields.Description != issueDesc {
+				retry, err := r.updateDescription(issue.Key, issueDesc)
+				if err != nil {
+					return retry, err
+				}
 			}
 		}
 
