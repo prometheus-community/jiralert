@@ -143,13 +143,15 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 		return false, errors.Wrap(err, "render issue type")
 	}
 
+	staticLabels := r.conf.StaticLabels
+
 	issue = &jira.Issue{
 		Fields: &jira.IssueFields{
 			Project:     jira.Project{Key: project},
 			Type:        jira.IssueType{Name: issueType},
 			Description: issueDesc,
 			Summary:     issueSummary,
-			Labels:      []string{issueGroupLabel},
+			Labels:      append(staticLabels, issueGroupLabel),
 			Unknowns:    tcontainer.NewMarshalMap(),
 		},
 	}
