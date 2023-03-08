@@ -5,6 +5,8 @@ defaults:
   api_url: https://jiralert.atlassian.net
   user: jiralert
   password: 'JIRAlert'
+  # Alternatively to user and password use a Personal Access Token
+  # personal_access_token: "Your Personal Access Token". See https://confluence.atlassian.com/enterprise/using-personal-access-tokens-1026032365.html
 
   # The type of JIRA issue to create. Required.
   issue_type: Bug
