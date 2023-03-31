@@ -10,7 +10,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package notify
 
 import (
@@ -262,12 +261,11 @@ func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string 
 	// old default behavior
 	buf := bytes.NewBufferString("ALERT{")
 	for _, p := range groupLabels.SortedPairs() {
-		buf.WriteString(p.Name)
-		buf.WriteString(fmt.Sprintf("=%q,", p.Value))
+		fmt.Fprintf(buf, "%s=%q,", p.Name, p.Value)
 	}
 	buf.Truncate(buf.Len() - 1)
 	buf.WriteString("}")
-	return strings.Replace(buf.String(), " ", "", -1)
+	return strings.ReplaceAll(buf.String(), " ", "")
 }
 
 func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error) {
@@ -408,5 +406,4 @@ func (r *Receiver) doTransition(issueKey string, transitionState string) (bool, 
 		}
 	}
 	return false, errors.Errorf("JIRA state %q does not exist or no transition possible for %s", r.conf.ReopenState, issueKey)
-
 }
