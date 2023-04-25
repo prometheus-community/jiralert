@@ -21,19 +21,14 @@ import (
 	"os"
 	"runtime"
 	"strconv"
-
 	"github.com/andygrunwald/go-jira"
-
-
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/prometheus-community/jiralert/pkg/alertmanager"
 	"github.com/prometheus-community/jiralert/pkg/config"
 	"github.com/prometheus-community/jiralert/pkg/notify"
 	"github.com/prometheus-community/jiralert/pkg/template"
-
-	_ "net/http/pprof"
-
+	"net/http/pprof"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
