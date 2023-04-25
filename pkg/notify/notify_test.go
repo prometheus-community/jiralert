@@ -550,7 +550,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 				return testNowTime
 			}
 
-			_, err := receiver.Notify(tcase.inputAlert, true, false)
+			_, err := receiver.Notify(tcase.inputAlert, true, false, false, false)
 			require.NoError(t, err)
 			require.Equal(t, tcase.expectedJiraIssues, fakeJira.issuesByKey)
 		}); !ok {

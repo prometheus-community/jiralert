@@ -17,11 +17,12 @@ import (
 	"bytes"
 	"crypto/sha512"
 	"fmt"
-	"github.com/andygrunwald/go-jira"
 	"io"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/andygrunwald/go-jira"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -60,7 +61,7 @@ func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Templa
 }
 
 // Notify manages JIRA issues based on alertmanager webhook notify message.
-func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateContentDisabled bool) (bool, error) {
+func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSummary bool, updateDescription bool, reopenTickets bool) (bool, error) {
 	project, err := r.tmpl.Execute(r.conf.Project, data)
 	if err != nil {
 		return false, errors.Wrap(err, "generate project from template")
@@ -85,16 +86,20 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateCon
 		return false, errors.Wrap(err, "render issue description")
 	}
 
-	if issue != nil && !updateContentDisabled {
+	if issue != nil {
+
 		// Update summary if needed.
-		if !updateContentDisabled {
+		if updateSummary {
 			if issue.Fields.Summary != issueSummary {
+				level.Debug(r.logger).Log("updateSummaryDisabled executing")
 				retry, err := r.updateSummary(issue.Key, issueSummary)
 				if err != nil {
 					return retry, err
 				}
 			}
+		}
 
+		if updateDescription {
 			if issue.Fields.Description != issueDesc {
 				retry, err := r.updateDescription(issue.Key, issueDesc)
 				if err != nil {
@@ -123,14 +128,19 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateCon
 			return false, nil
 		}
 
-		if r.conf.WontFixResolution != "" && issue.Fields.Resolution != nil &&
-			issue.Fields.Resolution.Name == r.conf.WontFixResolution {
-			level.Info(r.logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, "label", issueGroupLabel, "resolution", issue.Fields.Resolution.Name)
-			return false, nil
+		if reopenTickets {
+			if r.conf.WontFixResolution != "" && issue.Fields.Resolution != nil &&
+				issue.Fields.Resolution.Name == r.conf.WontFixResolution {
+				level.Info(r.logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, "label", issueGroupLabel, "resolution", issue.Fields.Resolution.Name)
+				return false, nil
+			}
+
+			level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", issueGroupLabel)
+			return r.reopen(issue.Key)
 		}
 
-		level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", issueGroupLabel)
-		return r.reopen(issue.Key)
+		level.Debug(r.logger).Log("Did not update anything")
+		return false, nil
 	}
 
 	if len(data.Alerts.Firing()) == 0 {
