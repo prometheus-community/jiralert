@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
 	"github.com/andygrunwald/go-jira"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
