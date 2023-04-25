@@ -188,6 +188,18 @@ func testReceiverConfigAutoResolve() *config.ReceiverConfig {
 	}
 }
 
+func testReceiverConfigWithStaticLabels() *config.ReceiverConfig {
+	reopen := config.Duration(1 * time.Hour)
+	return &config.ReceiverConfig{
+		Project:           "abc",
+		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
+		ReopenDuration:    &reopen,
+		ReopenState:       "reopened",
+		WontFixResolution: "won't-fix",
+		StaticLabels:      []string{"somelabel"},
+	}
+}
+
 func TestNotify_JIRAInteraction(t *testing.T) {
 	testNowTime := time.Now()
 
@@ -532,6 +544,35 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 						Unknowns:    tcontainer.MarshalMap{},
 						Summary:     "[RESOLVED] b d ", // Title changed.
 						Description: "1",
+					},
+				},
+			},
+		},
+		{
+			name:        "empty jira, new alert group with StaticLabels",
+			inputConfig: testReceiverConfigWithStaticLabels(),
+			initJira:    func(t *testing.T) *fakeJira { return newTestFakeJira() },
+			inputAlert: &alertmanager.Data{
+				Alerts: alertmanager.Alerts{
+					{Status: alertmanager.AlertFiring},
+					{Status: "not firing"},
+					{Status: alertmanager.AlertFiring},
+				},
+				Status:      alertmanager.AlertFiring,
+				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
+			},
+			expectedJiraIssues: map[string]*jira.Issue{
+				"1": {
+					ID:  "1",
+					Key: "1",
+					Fields: &jira.IssueFields{
+						Project: jira.Project{Key: testReceiverConfig1().Project},
+						Labels:  []string{"somelabel", "JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
+						Status: &jira.Status{
+							StatusCategory: jira.StatusCategory{Key: "NotDone"},
+						},
+						Unknowns: tcontainer.MarshalMap{},
+						Summary:  "[FIRING:2] b d ",
 					},
 				},
 			},

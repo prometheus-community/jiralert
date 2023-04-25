@@ -46,6 +46,7 @@ defaults:
   # Amount of time after being closed that an issue should be reopened, after which, a new issue is created.
   # Optional (default: always reopen)
   reopen_duration: 0h
+  static_labels: ["defaultlabel"]
 
 # Receiver definitions. At least one must be defined.
 receivers:
@@ -55,6 +56,7 @@ receivers:
     project: AB
     # Copy all Prometheus labels into separate JIRA labels. Optional (default: false).
     add_group_labels: false
+    static_labels: ["somelabel"]
 
   - name: 'jira-xy'
     project: XY
@@ -122,10 +124,11 @@ type receiverTestConfig struct {
 	ReopenState         string `yaml:"reopen_state,omitempty"`
 	ReopenDuration      string `yaml:"reopen_duration,omitempty"`
 
-	Priority          string `yaml:"priority,omitempty"`
-	Description       string `yaml:"description,omitempty"`
-	WontFixResolution string `yaml:"wont_fix_resolution,omitempty"`
-	AddGroupLabels    bool   `yaml:"add_group_labels,omitempty"`
+	Priority          string   `yaml:"priority,omitempty"`
+	Description       string   `yaml:"description,omitempty"`
+	WontFixResolution string   `yaml:"wont_fix_resolution,omitempty"`
+	AddGroupLabels    bool     `yaml:"add_group_labels,omitempty"`
+	StaticLabels      []string `yaml:"static_labels" json:"static_labels"`
 
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
 
@@ -328,8 +331,9 @@ func TestReceiverOverrides(t *testing.T) {
 		{"WontFixResolution", "Won't Fix", "Won't Fix"},
 		{"AddGroupLabels", false, false},
 		{"AutoResolve", &AutoResolve{State: "Done"}, &autoResolve},
+		{"StaticLabels", []string{"somelabel"}, []string{"somelabel"}},
 	} {
-		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels", "AutoResolve"}
+		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels", "AutoResolve", "StaticLabels"}
 		defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), optionalFields)
 		receiverConfig := newReceiverTestConfig([]string{"Name"}, optionalFields)
 
@@ -383,6 +387,8 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 			value = reflect.ValueOf(true)
 		} else if name == "AutoResolve" {
 			value = reflect.ValueOf(&AutoResolve{State: "Done"})
+		} else if name == "StaticLabels" {
+			value = reflect.ValueOf([]string{})
 		} else {
 			value = reflect.ValueOf(name)
 		}
@@ -458,4 +464,41 @@ func TestAutoResolveConfigDefault(t *testing.T) {
 
 	configErrorTestRunner(t, config, "bad config in defaults section: state cannot be empty")
 
+}
+
+func TestStaticLabelsConfigMerge(t *testing.T) {
+
+	for i, test := range []struct {
+		defaultValue     []string
+		receiverValue    []string
+		expectedElements []string
+	}{
+		{[]string{"defaultlabel"}, []string{"receiverlabel"}, []string{"defaultlabel", "receiverlabel"}},
+		{[]string{}, []string{"receiverlabel"}, []string{"receiverlabel"}},
+		{[]string{"defaultlabel"}, []string{}, []string{"defaultlabel"}},
+		{[]string{}, []string{}, []string{}},
+	} {
+		mandatory := mandatoryReceiverFields()
+
+		defaultsConfig := newReceiverTestConfig(mandatory, []string{})
+		defaultsConfig.StaticLabels = test.defaultValue
+
+		receiverConfig := newReceiverTestConfig([]string{"Name"}, []string{"StaticLabels"})
+		receiverConfig.StaticLabels = test.receiverValue
+
+		config := testConfig{
+			Defaults:  defaultsConfig,
+			Receivers: []*receiverTestConfig{receiverConfig},
+			Template:  "jiralert.tmpl",
+		}
+
+		yamlConfig, err := yaml.Marshal(&config)
+		require.NoError(t, err)
+
+		cfg, err := Load(string(yamlConfig))
+		require.NoError(t, err)
+
+		receiver := cfg.Receivers[0]
+		require.ElementsMatch(t, receiver.StaticLabels, test.expectedElements, "Elements should match (failing index: %v)", i)
+	}
 }
