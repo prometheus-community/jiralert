@@ -15,6 +15,7 @@ package template
 
 import (
 	"bytes"
+	"os"
 	"regexp"
 	"strings"
 	"text/template"
@@ -46,6 +47,9 @@ var funcs = template.FuncMap{
 	},
 	"stringSlice": func(s ...string) []string {
 		return s
+	},
+	"getEnv": func(name string) string {
+		return os.Getenv(name)
 	},
 }
 
