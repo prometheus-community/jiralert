@@ -28,7 +28,7 @@ import (
 	"github.com/prometheus-community/jiralert/pkg/config"
 	"github.com/prometheus-community/jiralert/pkg/notify"
 	"github.com/prometheus-community/jiralert/pkg/template"
-	"net/http/pprof"
+	_ "net/http/pprof"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
