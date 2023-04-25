@@ -14,11 +14,12 @@ package notify
 
 import (
 	"fmt"
-	"github.com/andygrunwald/go-jira"
 	"os"
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/andygrunwald/go-jira"
 
 	"github.com/trivago/tgo/tcontainer"
 
@@ -550,7 +551,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 				return testNowTime
 			}
 
-			_, err := receiver.Notify(tcase.inputAlert, true)
+			_, err := receiver.Notify(tcase.inputAlert, true, true, true, true)
 			require.NoError(t, err)
 			require.Equal(t, tcase.expectedJiraIssues, fakeJira.issuesByKey)
 		}); !ok {
