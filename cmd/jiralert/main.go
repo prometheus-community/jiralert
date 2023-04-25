@@ -24,6 +24,7 @@ import (
 
 	"github.com/andygrunwald/go-jira"
 
+
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/prometheus-community/jiralert/pkg/alertmanager"
@@ -131,7 +132,8 @@ func main() {
 				// Instruct Alertmanager to retry.
 				status = http.StatusServiceUnavailable
 			} else {
-				status = http.StatusInternalServerError
+				// Inaccurate, just letting Alertmanager know that it should not retry.
+				status = http.StatusBadRequest
 			}
 			errorHandler(w, status, err, conf.Name, &data, logger)
 			return
