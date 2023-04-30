@@ -147,7 +147,6 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 			}
 		}
 
-
 		for CustomField := range issueCustomFields {
 			if _, ok := issue.Fields.Unknowns[CustomField]; ok {
 				if issue.Fields.Unknowns[CustomField] != issueCustomFields[CustomField] {
@@ -345,7 +344,7 @@ func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bo
 	projectList := "'" + strings.Join(projects, "', '") + "'"
 	query := fmt.Sprintf("project in(%s) and labels=%q order by resolutiondate desc", projectList, issueLabel)
 	options := &jira.SearchOptions{
-		Fields: append([]string{"summary", "status", "resolution", "resolutiondate", "description", "comment"}, r.conf.CustomFieldsToUpdate...),
+		Fields:     append([]string{"summary", "status", "resolution", "resolutiondate", "description", "comment"}, r.conf.CustomFieldsToUpdate...),
 		MaxResults: 2,
 	}
 

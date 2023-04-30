@@ -238,7 +238,7 @@ func testReceiverConfigWithCustomFields() *config.ReceiverConfig {
 		Fields: tcontainer.MarshalMap(map[string]interface{}{
 			"customfield_12345": `{{ (index .Alerts 0).Annotations.AlertValue }}`,
 		}),
-		CustomFieldsToUpdate: []string{"customfield_12345","non_existant_field"},
+		CustomFieldsToUpdate: []string{"customfield_12345", "non_existant_field"},
 	}
 }
 
