@@ -76,6 +76,10 @@ receivers:
       customfield_10002: { "value": "red" }
       # MultiSelect
       customfield_10003: [{"value": "red" }, {"value": "blue" }, {"value": "green" }]
+    # List of standard or custom field names which values will be updated. Optional.
+    update_always_fields:
+      - customfield_10001
+      - customfield_10003
 
 # File containing template definitions. Required.
 template: jiralert.tmpl
@@ -126,12 +130,13 @@ type receiverTestConfig struct {
 	ReopenState         string `yaml:"reopen_state,omitempty"`
 	ReopenDuration      string `yaml:"reopen_duration,omitempty"`
 
-	Priority          string   `yaml:"priority,omitempty"`
-	Description       string   `yaml:"description,omitempty"`
-	WontFixResolution string   `yaml:"wont_fix_resolution,omitempty"`
-	AddGroupLabels    *bool    `yaml:"add_group_labels,omitempty"`
+	Priority             string   `yaml:"priority,omitempty"`
+	Description          string   `yaml:"description,omitempty"`
+	WontFixResolution    string   `yaml:"wont_fix_resolution,omitempty"`
+	AddGroupLabels       *bool    `yaml:"add_group_labels,omitempty"`
 	UpdateInComment   *bool    `yaml:"update_in_comment,omitempty"`
-	StaticLabels      []string `yaml:"static_labels" json:"static_labels"`
+	StaticLabels         []string `yaml:"static_labels" json:"static_labels"`
+	CustomFieldsToUpdate []string `yaml:"update_always_fields,omitempty"`
 
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
 
