@@ -157,9 +157,6 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 						return retry, err
 					}
 				}
-				if err != nil {
-					return false, err
-				}
 			}
 		}
 

@@ -394,8 +394,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 						Annotations: alertmanager.KV{
 							"AlertValue": "95",
 						},
-					},
-					//{Status: "not firing"},
+					}, // New value for the field
 				},
 				Status:      alertmanager.AlertFiring,
 				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
