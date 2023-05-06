@@ -107,7 +107,7 @@ func (f *fakeJira) Create(issue *jira.Issue) (*jira.Issue, *jira.Response, error
 
 	// Assuming single label.
 	query := fmt.Sprintf(
-		"project=\"%s\" and labels=%q order by resolutiondate desc",
+		"project in('%s') and labels=%q order by resolutiondate desc",
 		issue.Fields.Project.Key,
 		issue.Fields.Labels[0],
 	)

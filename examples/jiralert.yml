@@ -25,6 +25,8 @@ defaults:
   reopen_duration: 0h
   # Static label that will be added to the JIRA ticket alongisde the JIRALERT{...} or ALERT{...} label
   static_labels: ["custom"]
+  # Other projects that issues may be moved to and further updates are desired
+  other_projects: ["OTHER1", "OTHER2"]
 
 # Receiver definitions. At least one must be defined.
 receivers:
@@ -56,7 +58,7 @@ receivers:
     #
     # Automatically resolve jira issues when alert is resolved. Optional. If declared, ensure state is not an empty string.
     auto_resolve:
-      state: 'Done' 
+      state: 'Done'
 
 # File containing template definitions. Required.
 template: jiralert.tmpl

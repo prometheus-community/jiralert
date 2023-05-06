@@ -283,8 +283,10 @@ func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string 
 	return strings.Replace(buf.String(), " ", "", -1)
 }
 
-func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error) {
-	query := fmt.Sprintf("project=\"%s\" and labels=%q order by resolutiondate desc", project, issueLabel)
+func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bool, error) {
+	// search multiple projects in case issue was moved and further alert firings are desired in existing JIRA
+	projectList := "'" + strings.Join(projects, "', '") + "'"
+	query := fmt.Sprintf("project in(%s) and labels=%q order by resolutiondate desc", projectList, issueLabel)
 	options := &jira.SearchOptions{
 		Fields:     []string{"summary", "status", "resolution", "resolutiondate"},
 		MaxResults: 2,
@@ -312,7 +314,15 @@ func (r *Receiver) search(project, issueLabel string) (*jira.Issue, bool, error)
 }
 
 func (r *Receiver) findIssueToReuse(project string, issueGroupLabel string) (*jira.Issue, bool, error) {
-	issue, retry, err := r.search(project, issueGroupLabel)
+	projectsToSearch := []string{project}
+	// in case issue was moved to a different project, include configured potential other projects in search
+	for _, other := range r.conf.OtherProjects {
+		if other != project {
+			projectsToSearch = append(projectsToSearch, other)
+		}
+	}
+
+	issue, retry, err := r.search(projectsToSearch, issueGroupLabel)
 	if err != nil {
 		return nil, retry, err
 	}
