@@ -133,6 +133,7 @@ type ReceiverConfig struct {
 
 	// Required issue fields
 	Project        string    `yaml:"project" json:"project"`
+	OtherProjects  []string  `yaml:"other_projects" json:"other_projects"`
 	IssueType      string    `yaml:"issue_type" json:"issue_type"`
 	Summary        string    `yaml:"summary" json:"summary"`
 	ReopenState    string    `yaml:"reopen_state" json:"reopen_state"`
@@ -310,6 +311,9 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		}
 		if len(c.Defaults.StaticLabels) > 0 {
 			rc.StaticLabels = append(rc.StaticLabels, c.Defaults.StaticLabels...)
+		}
+		if len(c.Defaults.OtherProjects) > 0 {
+			rc.OtherProjects = append(rc.OtherProjects, c.Defaults.OtherProjects...)
 		}
 	}
 
