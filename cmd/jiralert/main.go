@@ -50,6 +50,7 @@ var (
 		"- this ensures that the label text does not overflow the allowed length in jira (255)")
 	updateSummary     = flag.Bool("update-summary", true, "When false, jiralert does not update the summary of the existing jira issue, even when changes are spotted.")
 	updateDescription = flag.Bool("update-description", true, "When false, jiralert does not update the description of the existing jira issue, even when changes are spotted.")
+	updateInComment   = flag.Bool("update-in-comment", true, "When true, jiralert adds a comment with an update of the existing jira issue.")
 	reopenTickets     = flag.Bool("reopen-tickets", true, "When false, jiralert does not reopen tickets.")
 
 	// Version is the build version, set by make to latest git tag/hash via `-ldflags "-X main.Version=$(VERSION)"`.
@@ -124,7 +125,7 @@ func main() {
 			return
 		}
 
-		if retry, err := notify.NewReceiver(logger, conf, tmpl, client.Issue).Notify(&data, *hashJiraLabel, *updateSummary, *updateDescription, *reopenTickets); err != nil {
+		if retry, err := notify.NewReceiver(logger, conf, tmpl, client.Issue).Notify(&data, *hashJiraLabel, *updateSummary, *updateDescription, *updateInComment, *reopenTickets); err != nil {
 			var status int
 			if retry {
 				// Instruct Alertmanager to retry.

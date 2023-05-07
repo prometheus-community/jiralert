@@ -134,6 +134,11 @@ func (f *fakeJira) UpdateWithOptions(old *jira.Issue, _ *jira.UpdateQueryOptions
 	return issue, nil, nil
 }
 
+func (f *fakeJira) AddComment(issueID string, comment *jira.Comment) (*jira.Comment, *jira.Response, error) {
+	// This is a placeholder to keep fakeJira compatible with the updated Interface
+	return nil, nil, nil
+}
+
 func (f *fakeJira) DoTransition(ticketID, transitionID string) (*jira.Response, error) {
 	issue, ok := f.issuesByKey[ticketID]
 	if !ok {
@@ -592,7 +597,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 				return testNowTime
 			}
 
-			_, err := receiver.Notify(tcase.inputAlert, true, true, true, true)
+			_, err := receiver.Notify(tcase.inputAlert, true, true, true, false, true)
 			require.NoError(t, err)
 			require.Equal(t, tcase.expectedJiraIssues, fakeJira.issuesByKey)
 		}); !ok {

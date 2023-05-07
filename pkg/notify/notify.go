@@ -40,6 +40,7 @@ type jiraIssueService interface {
 
 	Create(issue *jira.Issue) (*jira.Issue, *jira.Response, error)
 	UpdateWithOptions(issue *jira.Issue, opts *jira.UpdateQueryOptions) (*jira.Issue, *jira.Response, error)
+	AddComment(issueID string, comment *jira.Comment) (*jira.Comment, *jira.Response, error)
 	DoTransition(ticketID, transitionID string) (*jira.Response, error)
 }
 
@@ -60,7 +61,7 @@ func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Templa
 }
 
 // Notify manages JIRA issues based on alertmanager webhook notify message.
-func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSummary bool, updateDescription bool, reopenTickets bool) (bool, error) {
+func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSummary bool, updateDescription bool, updateInComment bool, reopenTickets bool) (bool, error) {
 	project, err := r.tmpl.Execute(r.conf.Project, data)
 	if err != nil {
 		return false, errors.Wrap(err, "generate project from template")
@@ -104,6 +105,13 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 				if err != nil {
 					return retry, err
 				}
+			}
+		}
+
+		if updateInComment {
+			retry, err := r.addComment(issue.Key, issueDesc)
+			if err != nil {
+				return retry, err
 			}
 		}
 
@@ -362,6 +370,21 @@ func (r *Receiver) updateDescription(issueKey string, description string) (bool,
 		return handleJiraErrResponse("Issue.UpdateWithOptions", resp, err, r.logger)
 	}
 	level.Debug(r.logger).Log("msg", "issue summary updated", "key", issue.Key, "id", issue.ID)
+	return false, nil
+}
+
+func (r *Receiver) addComment(issueKey string, content string) (bool, error) {
+	level.Debug(r.logger).Log("msg", "adding comment to existing issue", "key", issueKey, "content", content)
+
+	commentDetails := &jira.Comment{
+		Body: content,
+	}
+
+	comment, resp, err := r.client.AddComment(issueKey, commentDetails)
+	if err != nil {
+		return handleJiraErrResponse("Issue.AddComment", resp, err, r.logger)
+	}
+	level.Debug(r.logger).Log("msg", "added comment to issue", "key", issueKey, "id", comment.ID)
 	return false, nil
 }
 
