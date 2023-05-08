@@ -138,6 +138,7 @@ type Alert struct {
 	StartsAt     time.Time `json:"startsAt"`
 	EndsAt       time.Time `json:"endsAt"`
 	GeneratorURL string    `json:"generatorURL"`
+	Fingerprint  string    `json:"fingerprint"`
 }
 
 // Alerts is a list of Alert objects.
