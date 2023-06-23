@@ -150,6 +150,9 @@ type ReceiverConfig struct {
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
 
 	// Flag to auto-resolve opened issue when the alert is resolved.
+	UpdateInComment bool `yaml:"update_in_comment" json:"update_in_comment"`
+
+	// Flag to auto-resolve opened issue when the alert is resolved.
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
 
 	// Catches all undefined fields and must be empty after parsing.
@@ -311,6 +314,9 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		if len(c.Defaults.StaticLabels) > 0 {
 			rc.StaticLabels = append(rc.StaticLabels, c.Defaults.StaticLabels...)
 		}
+    if ! rc.UpdateInComment {
+      rc.UpdateInComment = c.Defaults.UpdateInComment
+    }
 	}
 
 	if len(c.Receivers) == 0 {

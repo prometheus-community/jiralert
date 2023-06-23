@@ -56,6 +56,7 @@ receivers:
     project: AB
     # Copy all Prometheus labels into separate JIRA labels. Optional (default: false).
     add_group_labels: false
+    update_in_comment: false
     static_labels: ["somelabel"]
 
   - name: 'jira-xy'
@@ -128,6 +129,7 @@ type receiverTestConfig struct {
 	Description       string   `yaml:"description,omitempty"`
 	WontFixResolution string   `yaml:"wont_fix_resolution,omitempty"`
 	AddGroupLabels    bool     `yaml:"add_group_labels,omitempty"`
+	UpdateInComment   bool     `yaml:"update_in_comment,omitempty"`
 	StaticLabels      []string `yaml:"static_labels" json:"static_labels"`
 
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
@@ -330,10 +332,11 @@ func TestReceiverOverrides(t *testing.T) {
 		{"Description", "A nice description", "A nice description"},
 		{"WontFixResolution", "Won't Fix", "Won't Fix"},
 		{"AddGroupLabels", false, false},
+		{"UpdateInComment", false, false},
 		{"AutoResolve", &AutoResolve{State: "Done"}, &autoResolve},
 		{"StaticLabels", []string{"somelabel"}, []string{"somelabel"}},
 	} {
-		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels", "AutoResolve", "StaticLabels"}
+		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels", "UpdateInComment", "AutoResolve", "StaticLabels"}
 		defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), optionalFields)
 		receiverConfig := newReceiverTestConfig([]string{"Name"}, optionalFields)
 
@@ -384,6 +387,8 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 	for _, name := range optional {
 		var value reflect.Value
 		if name == "AddGroupLabels" {
+			value = reflect.ValueOf(true)
+    } else if name == "UpdateInComment" {
 			value = reflect.ValueOf(true)
 		} else if name == "AutoResolve" {
 			value = reflect.ValueOf(&AutoResolve{State: "Done"})

@@ -34,6 +34,8 @@ receivers:
     project: AB
     # Copy all Prometheus labels into separate JIRA labels. Optional (default: false).
     add_group_labels: false
+    # Include ticket update as comment too. Optional (default: false).
+    update_in_comment: false
     # Will be merged with the static_labels from the default map
     static_labels: ["anotherLabel"]
 
