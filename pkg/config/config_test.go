@@ -388,7 +388,7 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 		var value reflect.Value
 		if name == "AddGroupLabels" {
 			value = reflect.ValueOf(true)
-    } else if name == "UpdateInComment" {
+		} else if name == "UpdateInComment" {
 			value = reflect.ValueOf(true)
 		} else if name == "AutoResolve" {
 			value = reflect.ValueOf(&AutoResolve{State: "Done"})

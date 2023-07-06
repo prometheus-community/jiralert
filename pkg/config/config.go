@@ -149,7 +149,7 @@ type ReceiverConfig struct {
 	// Label copy settings
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
 
-	// Flag to auto-resolve opened issue when the alert is resolved.
+	// Flag to enable updates in comments.
 	UpdateInComment bool `yaml:"update_in_comment" json:"update_in_comment"`
 
 	// Flag to auto-resolve opened issue when the alert is resolved.
