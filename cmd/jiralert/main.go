@@ -39,7 +39,7 @@ const (
 	unknownReceiver             = "<unknown>"
 	logFormatLogfmt             = "logfmt"
 	logFormatJSON               = "json"
-	defaultMaxDescriptionLength = 32768 // https://jira.atlassian.com/browse/JRASERVER-64351
+	defaultMaxDescriptionLength = 32767 // https://jira.atlassian.com/browse/JRASERVER-64351
 )
 
 var (
