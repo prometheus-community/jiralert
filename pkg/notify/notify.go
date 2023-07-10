@@ -61,7 +61,7 @@ func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Templa
 }
 
 // Notify manages JIRA issues based on alertmanager webhook notify message.
-func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSummary bool, updateDescription bool, reopenTickets bool) (bool, error) {
+func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSummary bool, updateDescription bool, reopenTickets bool, maxDescriptionLength int) (bool, error) {
 	project, err := r.tmpl.Execute(r.conf.Project, data)
 	if err != nil {
 		return false, errors.Wrap(err, "generate project from template")
@@ -84,6 +84,11 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 	issueDesc, err := r.tmpl.Execute(r.conf.Description, data)
 	if err != nil {
 		return false, errors.Wrap(err, "render issue description")
+	}
+
+	if len(issueDesc) > maxDescriptionLength {
+		level.Warn(r.logger).Log("msg", "truncating description", "original", len(issueDesc), "limit", maxDescriptionLength)
+		issueDesc = issueDesc[:maxDescriptionLength]
 	}
 
 	if issue != nil {
