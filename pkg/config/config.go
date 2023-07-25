@@ -314,9 +314,6 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		if len(c.Defaults.StaticLabels) > 0 {
 			rc.StaticLabels = append(rc.StaticLabels, c.Defaults.StaticLabels...)
 		}
-    if ! rc.UpdateInComment {
-      rc.UpdateInComment = c.Defaults.UpdateInComment
-    }
 	}
 
 	if len(c.Receivers) == 0 {
