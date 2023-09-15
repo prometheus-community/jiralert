@@ -425,6 +425,6 @@ func (r *Receiver) doTransition(issueKey string, transitionState string) (bool, 
 			return false, nil
 		}
 	}
-	return false, errors.Errorf("JIRA state %q does not exist or no transition possible for %s", r.conf.ReopenState, issueKey)
+	return false, errors.Errorf("JIRA state %q does not exist or no transition possible for %s", transitionState, issueKey)
 
 }
