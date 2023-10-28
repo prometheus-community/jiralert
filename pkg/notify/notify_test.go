@@ -60,6 +60,8 @@ func (f *fakeJira) Search(jql string, options *jira.SearchOptions) ([]jira.Issue
 			switch field {
 			case "summary":
 				issue.Fields.Summary = f.issuesByKey[key].Fields.Summary
+			case "description":
+				issue.Fields.Description = f.issuesByKey[key].Fields.Description
 			case "resolution":
 				if f.issuesByKey[key].Fields.Resolution == nil {
 					continue
@@ -134,6 +136,12 @@ func (f *fakeJira) UpdateWithOptions(old *jira.Issue, _ *jira.UpdateQueryOptions
 	return issue, nil, nil
 }
 
+func (f *fakeJira) AddComment(issueID string, comment *jira.Comment) (*jira.Comment, *jira.Response, error) {
+	f.issuesByKey[issueID].Fields.Comments.Comments = append(f.issuesByKey[issueID].Fields.Comments.Comments, comment)
+
+	return comment, nil, nil
+}
+
 func (f *fakeJira) DoTransition(ticketID, transitionID string) (*jira.Response, error) {
 	issue, ok := f.issuesByKey[ticketID]
 	if !ok {
@@ -172,6 +180,19 @@ func testReceiverConfig2() *config.ReceiverConfig {
 		ReopenState:       "reopened",
 		Description:       `{{ .Alerts.Firing | len }}`,
 		WontFixResolution: "won't-fix",
+	}
+}
+
+func testReceiverConfigAddComments() *config.ReceiverConfig {
+	reopen := config.Duration(1 * time.Hour)
+	return &config.ReceiverConfig{
+		Project:           "abc",
+		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
+		ReopenDuration:    &reopen,
+		ReopenState:       "reopened",
+		Description:       `{{ .Alerts.Firing | len }}`,
+		WontFixResolution: "won't-fix",
+		UpdateInComment:   config.NullBool{Valid: true, Bool: true},
 	}
 }
 
@@ -573,6 +594,93 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 						},
 						Unknowns: tcontainer.MarshalMap{},
 						Summary:  "[FIRING:2] b d ",
+					},
+				},
+			},
+		},
+		{
+			name:        "existing ticket, new instance firing, add comment",
+			inputConfig: testReceiverConfigAddComments(),
+			initJira: func(t *testing.T) *fakeJira {
+				f := newTestFakeJira()
+				_, _, err := f.Create(&jira.Issue{
+					ID:  "1",
+					Key: "1",
+					Fields: &jira.IssueFields{
+						Project:     jira.Project{Key: testReceiverConfigAddComments().Project},
+						Labels:      []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
+						Summary:     "[FIRING:2] b d ",
+						Description: "1",
+						Comments:    &jira.Comments{Comments: []*jira.Comment{}},
+					},
+				})
+				require.NoError(t, err)
+				return f
+			},
+			inputAlert: &alertmanager.Data{
+				Alerts: alertmanager.Alerts{
+					{Status: alertmanager.AlertFiring},
+					{Status: alertmanager.AlertFiring},
+				},
+				Status:      alertmanager.AlertFiring,
+				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
+			},
+			expectedJiraIssues: map[string]*jira.Issue{
+				"1": {
+					ID:  "1",
+					Key: "1",
+					Fields: &jira.IssueFields{
+						Project: jira.Project{Key: testReceiverConfigAddComments().Project},
+						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
+						Status: &jira.Status{
+							StatusCategory: jira.StatusCategory{Key: "NotDone"},
+						},
+						Summary:     "[FIRING:2] b d ",
+						Description: "2",
+						Comments:    &jira.Comments{Comments: []*jira.Comment{{Body: "2"}}},
+					},
+				},
+			},
+		},
+		{
+			name:        "existing ticket, same instance firing, no comment added",
+			inputConfig: testReceiverConfigAddComments(),
+			initJira: func(t *testing.T) *fakeJira {
+				f := newTestFakeJira()
+				_, _, err := f.Create(&jira.Issue{
+					ID:  "1",
+					Key: "1",
+					Fields: &jira.IssueFields{
+						Project:     jira.Project{Key: testReceiverConfigAddComments().Project},
+						Labels:      []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
+						Summary:     "[FIRING:1] b d ",
+						Description: "1",
+						Comments:    &jira.Comments{Comments: []*jira.Comment{}},
+					},
+				})
+				require.NoError(t, err)
+				return f
+			},
+			inputAlert: &alertmanager.Data{
+				Alerts: alertmanager.Alerts{
+					{Status: alertmanager.AlertFiring},
+				},
+				Status:      alertmanager.AlertFiring,
+				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
+			},
+			expectedJiraIssues: map[string]*jira.Issue{
+				"1": {
+					ID:  "1",
+					Key: "1",
+					Fields: &jira.IssueFields{
+						Project: jira.Project{Key: testReceiverConfigAddComments().Project},
+						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
+						Status: &jira.Status{
+							StatusCategory: jira.StatusCategory{Key: "NotDone"},
+						},
+						Summary:     "[FIRING:1] b d ",
+						Description: "1",
+						Comments:    &jira.Comments{Comments: []*jira.Comment{}},
 					},
 				},
 			},

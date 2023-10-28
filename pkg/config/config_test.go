@@ -46,6 +46,7 @@ defaults:
   # Amount of time after being closed that an issue should be reopened, after which, a new issue is created.
   # Optional (default: always reopen)
   reopen_duration: 0h
+  update_in_comment: true
   static_labels: ["defaultlabel"]
 
 # Receiver definitions. At least one must be defined.
@@ -56,6 +57,7 @@ receivers:
     project: AB
     # Copy all Prometheus labels into separate JIRA labels. Optional (default: false).
     add_group_labels: false
+    update_in_comment: false
     static_labels: ["somelabel"]
 
   - name: 'jira-xy'
@@ -128,6 +130,7 @@ type receiverTestConfig struct {
 	Description       string   `yaml:"description,omitempty"`
 	WontFixResolution string   `yaml:"wont_fix_resolution,omitempty"`
 	AddGroupLabels    bool     `yaml:"add_group_labels,omitempty"`
+	UpdateInComment   NullBool `yaml:"update_in_comment,omitempty"`
 	StaticLabels      []string `yaml:"static_labels" json:"static_labels"`
 
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
@@ -330,10 +333,12 @@ func TestReceiverOverrides(t *testing.T) {
 		{"Description", "A nice description", "A nice description"},
 		{"WontFixResolution", "Won't Fix", "Won't Fix"},
 		{"AddGroupLabels", false, false},
+		{"UpdateInComment", NullBool{Bool: false, Valid: true}, NullBool{Bool: false, Valid: true}},
+		{"UpdateInComment", NullBool{Bool: true, Valid: true}, NullBool{Bool: true, Valid: true}},
 		{"AutoResolve", &AutoResolve{State: "Done"}, &autoResolve},
 		{"StaticLabels", []string{"somelabel"}, []string{"somelabel"}},
 	} {
-		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels", "AutoResolve", "StaticLabels"}
+		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels", "UpdateInComment", "AutoResolve", "StaticLabels"}
 		defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), optionalFields)
 		receiverConfig := newReceiverTestConfig([]string{"Name"}, optionalFields)
 
@@ -354,7 +359,7 @@ func TestReceiverOverrides(t *testing.T) {
 
 		receiver := cfg.Receivers[0]
 		configValue := reflect.ValueOf(receiver).Elem().FieldByName(test.overrideField).Interface()
-		require.Equal(t, configValue, test.expectedValue)
+		require.Equal(t, test.expectedValue, configValue)
 	}
 
 }
@@ -385,6 +390,8 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 		var value reflect.Value
 		if name == "AddGroupLabels" {
 			value = reflect.ValueOf(true)
+		} else if name == "UpdateInComment" {
+			value = reflect.ValueOf(NullBool{Bool: false, Valid: false})
 		} else if name == "AutoResolve" {
 			value = reflect.ValueOf(&AutoResolve{State: "Done"})
 		} else if name == "StaticLabels" {

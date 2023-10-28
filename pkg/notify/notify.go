@@ -40,6 +40,7 @@ type jiraIssueService interface {
 
 	Create(issue *jira.Issue) (*jira.Issue, *jira.Response, error)
 	UpdateWithOptions(issue *jira.Issue, opts *jira.UpdateQueryOptions) (*jira.Issue, *jira.Response, error)
+	AddComment(issueID string, comment *jira.Comment) (*jira.Comment, *jira.Response, error)
 	DoTransition(ticketID, transitionID string) (*jira.Response, error)
 }
 
@@ -103,6 +104,28 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 			}
 		}
 
+		if r.conf.UpdateInComment.Valid && r.conf.UpdateInComment.Bool {
+			numComments := 0
+			if issue.Fields.Comments != nil {
+				numComments = len(issue.Fields.Comments.Comments)
+			}
+			if numComments > 0 && issue.Fields.Comments.Comments[(numComments-1)].Body == issueDesc {
+				// if the new comment is identical to the most recent comment,
+				// this is probably due to the prometheus repeat_interval and should not be added.
+				level.Debug(r.logger).Log("msg", "not adding new comment identical to last", "key", issue.Key)
+			} else if numComments == 0 && issue.Fields.Description == issueDesc {
+				// if the first comment is identical to the description,
+				// this is probably due to the prometheus repeat_interval and should not be added.
+				level.Debug(r.logger).Log("msg", "not adding comment identical to description", "key", issue.Key)
+			} else {
+				retry, err := r.addComment(issue.Key, issueDesc)
+				if err != nil {
+					return retry, err
+				}
+			}
+		}
+
+		// update description after possibly adding a comment so that it's possible to detect redundant first comment
 		if updateDescription {
 			if issue.Fields.Description != issueDesc {
 				retry, err := r.updateDescription(issue.Key, issueDesc)
@@ -293,7 +316,7 @@ func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bo
 	projectList := "'" + strings.Join(projects, "', '") + "'"
 	query := fmt.Sprintf("project in(%s) and labels=%q order by resolutiondate desc", projectList, issueLabel)
 	options := &jira.SearchOptions{
-		Fields:     []string{"summary", "status", "resolution", "resolutiondate"},
+		Fields:     []string{"summary", "status", "resolution", "resolutiondate", "description", "comment"},
 		MaxResults: 2,
 	}
 
@@ -377,6 +400,21 @@ func (r *Receiver) updateDescription(issueKey string, description string) (bool,
 		return handleJiraErrResponse("Issue.UpdateWithOptions", resp, err, r.logger)
 	}
 	level.Debug(r.logger).Log("msg", "issue summary updated", "key", issue.Key, "id", issue.ID)
+	return false, nil
+}
+
+func (r *Receiver) addComment(issueKey string, content string) (bool, error) {
+	level.Debug(r.logger).Log("msg", "adding comment to existing issue", "key", issueKey, "content", content)
+
+	commentDetails := &jira.Comment{
+		Body: content,
+	}
+
+	comment, resp, err := r.client.AddComment(issueKey, commentDetails)
+	if err != nil {
+		return handleJiraErrResponse("Issue.AddComment", resp, err, r.logger)
+	}
+	level.Debug(r.logger).Log("msg", "added comment to issue", "key", issueKey, "id", comment.ID)
 	return false, nil
 }
 

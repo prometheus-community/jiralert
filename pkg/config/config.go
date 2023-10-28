@@ -47,6 +47,36 @@ func (s *Secret) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return unmarshal((*plain)(s))
 }
 
+// NullBool will be used for boolean configuration values that should not
+// default to false when undefined and the default setting is true.
+type NullBool struct {
+	Bool  bool
+	Valid bool // Valid is true if Bool is defined
+}
+
+// MarshalYAML implements the yaml.Marshaler interface.
+func (nb NullBool) MarshalYAML() (interface{}, error) {
+	if nb.Valid {
+		return nb.Bool, nil
+	}
+	return false, nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface
+func (nb *NullBool) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var b bool
+
+	err := unmarshal(&b)
+	if err != nil {
+		return err
+	}
+
+	nb.Bool = b
+	nb.Valid = true
+
+	return nil
+}
+
 // Load parses the YAML input into a Config.
 func Load(s string) (*Config, error) {
 	cfg := &Config{}
@@ -149,6 +179,9 @@ type ReceiverConfig struct {
 
 	// Label copy settings
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
+
+	// Flag to enable updates in comments.
+	UpdateInComment NullBool `yaml:"update_in_comment" json:"update_in_comment"`
 
 	// Flag to auto-resolve opened issue when the alert is resolved.
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
@@ -314,6 +347,9 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		}
 		if len(c.Defaults.OtherProjects) > 0 {
 			rc.OtherProjects = append(rc.OtherProjects, c.Defaults.OtherProjects...)
+		}
+		if !rc.UpdateInComment.Valid && c.Defaults.UpdateInComment.Valid {
+			rc.UpdateInComment = c.Defaults.UpdateInComment
 		}
 	}
 
