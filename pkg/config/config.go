@@ -147,7 +147,7 @@ type ReceiverConfig struct {
 	Components        []string               `yaml:"components" json:"components"`
 
 	// ExcludeKeys settings
-	ExcludeKeys []string `yaml:"excludeKeys" json:"excludeKeys"`
+	ExcludeKeys []string `yaml:"exclude_keys" json:"exclude_keys"`
 
 	// Label copy settings
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
