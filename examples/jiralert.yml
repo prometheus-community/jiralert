@@ -5,6 +5,7 @@ defaults:
   api_url: https://jiralert.atlassian.net
   user: jiralert
   password: 'JIRAlert'
+  excludeKeys: []
 
   # The type of JIRA issue to create. Required.
   issue_type: Bug
@@ -32,6 +33,8 @@ receivers:
     project: AB
     # Copy all Prometheus labels into separate JIRA labels. Optional (default: false).
     add_group_labels: false
+    excludeKeys:
+      - pod
 
   - name: 'jira-xy'
     project: XY
@@ -42,6 +45,9 @@ receivers:
     # Standard or custom field values to set on created issue. Optional.
     #
     # See https://developer.atlassian.com/server/jira/platform/jira-rest-api-examples/#setting-custom-field-data-for-other-field-types for further examples.
+    excludeKeys:
+      - pod
+      - job
     fields:
       # TextField
       customfield_10001: "Random text"
