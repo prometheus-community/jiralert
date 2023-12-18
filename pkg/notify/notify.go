@@ -67,7 +67,8 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool) (bool, er
 		return false, errors.Wrap(err, "generate project from template")
 	}
 
-	issueGroupLabel := toGroupTicketLabel(data.GroupLabels, hashJiraLabel)
+	excludeKeys := r.conf.ExcludeKeys
+	issueGroupLabel := toGroupTicketLabel(data.GroupLabels, hashJiraLabel, excludeKeys)
 
 	issue, retry, err := r.findIssueToReuse(project, issueGroupLabel)
 	if err != nil {
@@ -253,7 +254,7 @@ func deepCopyWithTemplate(value interface{}, tmpl *template.Template, data inter
 // hashing ensures that JIRA validation still accepts the output even
 // if the combined length of all groupLabel key-value pairs would be
 // longer than 255 chars
-func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string {
+func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool, excludeKeys []string) string {
 	// new opt in behavior
 	if hashJiraLabel {
 		hash := sha512.New()
@@ -266,7 +267,7 @@ func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string 
 
 	// old default behavior
 	buf := bytes.NewBufferString("ALERT{")
-	for _, p := range groupLabels.SortedPairs() {
+	for _, p := range groupLabels.Remove(excludeKeys).SortedPairs() {
 		buf.WriteString(p.Name)
 		buf.WriteString(fmt.Sprintf("=%q,", p.Value))
 	}
