@@ -146,6 +146,9 @@ type ReceiverConfig struct {
 	Fields            map[string]interface{} `yaml:"fields" json:"fields"`
 	Components        []string               `yaml:"components" json:"components"`
 
+	// ExcludeKeys settings
+	ExcludeKeys []string `yaml:"excludeKeys" json:"excludeKeys"`
+
 	// Label copy settings
 	AddGroupLabels bool `yaml:"add_group_labels" json:"add_group_labels"`
 
@@ -254,6 +257,11 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			} else {
 				return fmt.Errorf("missing authentication in receiver %q", rc.Name)
 			}
+		}
+
+		// Check ExcludeKeys
+		if len(rc.ExcludeKeys) == 0 {
+			rc.ExcludeKeys = c.Defaults.ExcludeKeys
 		}
 
 		// Check required issue fields.
