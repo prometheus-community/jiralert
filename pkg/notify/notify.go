@@ -125,7 +125,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 			}
 		}
 
-		// update description after possibly adding a comment so that it's possible to detect redundant first comment
+		// update description if enabled. This has to be done after comment adding logic which needs to handle redundant commentary vs description case.
 		if updateDescription {
 			if issue.Fields.Description != issueDesc {
 				retry, err := r.updateDescription(issue.Key, issueDesc)
