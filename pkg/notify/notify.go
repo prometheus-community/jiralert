@@ -289,7 +289,7 @@ func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string 
 }
 
 func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bool, error) {
-	// search multiple projects in case issue was moved and further alert firings are desired in existing JIRA
+	// Search multiple projects in case issue was moved and further alert firings are desired in existing JIRA.
 	projectList := "'" + strings.Join(projects, "', '") + "'"
 	query := fmt.Sprintf("project in(%s) and labels=%q order by resolutiondate desc", projectList, issueLabel)
 	options := &jira.SearchOptions{
@@ -320,7 +320,7 @@ func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bo
 
 func (r *Receiver) findIssueToReuse(project string, issueGroupLabel string) (*jira.Issue, bool, error) {
 	projectsToSearch := []string{project}
-	// in case issue was moved to a different project, include configured potential other projects in search
+	// In case issue was moved to a different project, include the other configured projects in search (if any).
 	for _, other := range r.conf.OtherProjects {
 		if other != project {
 			projectsToSearch = append(projectsToSearch, other)
