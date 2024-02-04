@@ -104,7 +104,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 			}
 		}
 
-		if r.conf.UpdateInComment.Valid && r.conf.UpdateInComment.Bool {
+		if r.conf.UpdateInComment != nil && *r.conf.UpdateInComment {
 			numComments := 0
 			if issue.Fields.Comments != nil {
 				numComments = len(issue.Fields.Comments.Comments)
@@ -215,7 +215,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 		}
 	}
 
-	if r.conf.AddGroupLabels {
+	if r.conf.AddGroupLabels != nil && *r.conf.AddGroupLabels {
 		for k, v := range data.GroupLabels {
 			issue.Fields.Labels = append(issue.Fields.Labels, fmt.Sprintf("%s=%.200q", k, v))
 		}

@@ -185,6 +185,7 @@ func testReceiverConfig2() *config.ReceiverConfig {
 
 func testReceiverConfigAddComments() *config.ReceiverConfig {
 	reopen := config.Duration(1 * time.Hour)
+	updateInCommentValue := true
 	return &config.ReceiverConfig{
 		Project:           "abc",
 		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
@@ -192,7 +193,7 @@ func testReceiverConfigAddComments() *config.ReceiverConfig {
 		ReopenState:       "reopened",
 		Description:       `{{ .Alerts.Firing | len }}`,
 		WontFixResolution: "won't-fix",
-		UpdateInComment:   config.NullBool{Valid: true, Bool: true},
+		UpdateInComment:   &updateInCommentValue,
 	}
 }
 

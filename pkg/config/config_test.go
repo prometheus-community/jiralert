@@ -129,8 +129,8 @@ type receiverTestConfig struct {
 	Priority          string   `yaml:"priority,omitempty"`
 	Description       string   `yaml:"description,omitempty"`
 	WontFixResolution string   `yaml:"wont_fix_resolution,omitempty"`
-	AddGroupLabels    bool     `yaml:"add_group_labels,omitempty"`
-	UpdateInComment   NullBool `yaml:"update_in_comment,omitempty"`
+	AddGroupLabels    *bool    `yaml:"add_group_labels,omitempty"`
+	UpdateInComment   *bool    `yaml:"update_in_comment,omitempty"`
 	StaticLabels      []string `yaml:"static_labels" json:"static_labels"`
 
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
@@ -316,6 +316,10 @@ func TestReceiverOverrides(t *testing.T) {
 	fifteenHoursToDuration, err := ParseDuration("15h")
 	autoResolve := AutoResolve{State: "Done"}
 	require.NoError(t, err)
+	addGroupLabelsTrueVal := true
+	addGroupLabelsFalseVal := false
+	updateInCommentTrueVal := true
+	updateInCommentFalseVal := false
 
 	// We'll override one key at a time and check the value in the receiver.
 	for _, test := range []struct {
@@ -332,9 +336,10 @@ func TestReceiverOverrides(t *testing.T) {
 		{"Priority", "Critical", "Critical"},
 		{"Description", "A nice description", "A nice description"},
 		{"WontFixResolution", "Won't Fix", "Won't Fix"},
-		{"AddGroupLabels", false, false},
-		{"UpdateInComment", NullBool{Bool: false, Valid: true}, NullBool{Bool: false, Valid: true}},
-		{"UpdateInComment", NullBool{Bool: true, Valid: true}, NullBool{Bool: true, Valid: true}},
+		{"AddGroupLabels", &addGroupLabelsFalseVal, &addGroupLabelsFalseVal},
+		{"AddGroupLabels", &addGroupLabelsTrueVal, &addGroupLabelsTrueVal},
+		{"UpdateInComment", &updateInCommentFalseVal, &updateInCommentFalseVal},
+		{"UpdateInComment", &updateInCommentTrueVal, &updateInCommentTrueVal},
 		{"AutoResolve", &AutoResolve{State: "Done"}, &autoResolve},
 		{"StaticLabels", []string{"somelabel"}, []string{"somelabel"}},
 	} {
@@ -372,6 +377,8 @@ func TestReceiverOverrides(t *testing.T) {
 // Creates a receiverTestConfig struct with default values.
 func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestConfig {
 	r := receiverTestConfig{}
+	addGroupLabelsDefaultVal := true
+	updateInCommentDefaultVal := true
 
 	for _, name := range mandatory {
 		var value reflect.Value
@@ -389,9 +396,9 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 	for _, name := range optional {
 		var value reflect.Value
 		if name == "AddGroupLabels" {
-			value = reflect.ValueOf(true)
+			value = reflect.ValueOf(&addGroupLabelsDefaultVal)
 		} else if name == "UpdateInComment" {
-			value = reflect.ValueOf(NullBool{Bool: false, Valid: false})
+			value = reflect.ValueOf(&updateInCommentDefaultVal)
 		} else if name == "AutoResolve" {
 			value = reflect.ValueOf(&AutoResolve{State: "Done"})
 		} else if name == "StaticLabels" {
