@@ -451,9 +451,8 @@ func (r *Receiver) updateUnknownFields(issueKey string, unknowns tcontainer.Mars
 			Unknowns: unknowns,
 		},
 	}
-	_, resp, err := r.client.UpdateWithOptions(issueUpdate, nil)
-	if err != nil {
-		return handleJiraErrResponse("Issue.UpdateWithOptions", resp, err, r.logger)
+	if _, resp, err := r.client.UpdateWithOptions(issueUpdate, nil); err != nil {
+		return handleJiraErrResponse("Issue.UpdateUnknownFields", resp, err, r.logger)
 	}
 	return false, nil
 }
