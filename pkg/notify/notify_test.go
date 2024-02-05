@@ -162,23 +162,35 @@ func (f *fakeJira) DoTransition(ticketID, transitionID string) (*jira.Response, 
 
 func testReceiverConfig1() *config.ReceiverConfig {
 	reopen := config.Duration(1 * time.Hour)
+	updateSummary := true
+	updateDescription := true
+	reopenTickets := true
 	return &config.ReceiverConfig{
 		Project:           "abc",
 		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
 		ReopenDuration:    &reopen,
 		ReopenState:       "reopened",
+		ReopenTickets:     &reopenTickets,
+		UpdateSummary:     &updateSummary,
+		UpdateDescription: &updateDescription,
 		WontFixResolution: "won't-fix",
 	}
 }
 
 func testReceiverConfig2() *config.ReceiverConfig {
 	reopen := config.Duration(1 * time.Hour)
+	updateSummary := true
+	updateDescription := true
+	reopenTickets := true
 	return &config.ReceiverConfig{
 		Project:           "abc",
 		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
 		ReopenDuration:    &reopen,
 		ReopenState:       "reopened",
+		ReopenTickets:     &reopenTickets,
 		Description:       `{{ .Alerts.Firing | len }}`,
+		UpdateSummary:     &updateSummary,
+		UpdateDescription: &updateDescription,
 		WontFixResolution: "won't-fix",
 	}
 }
@@ -186,6 +198,8 @@ func testReceiverConfig2() *config.ReceiverConfig {
 func testReceiverConfigAddComments() *config.ReceiverConfig {
 	reopen := config.Duration(1 * time.Hour)
 	updateInCommentValue := true
+	updateSummary := true
+	updateDescription := true
 	return &config.ReceiverConfig{
 		Project:           "abc",
 		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
@@ -194,17 +208,25 @@ func testReceiverConfigAddComments() *config.ReceiverConfig {
 		Description:       `{{ .Alerts.Firing | len }}`,
 		WontFixResolution: "won't-fix",
 		UpdateInComment:   &updateInCommentValue,
+		UpdateSummary:     &updateSummary,
+		UpdateDescription: &updateDescription,
 	}
 }
 
 func testReceiverConfigAutoResolve() *config.ReceiverConfig {
 	reopen := config.Duration(1 * time.Hour)
+	updateSummary := true
+	updateDescription := true
+	reopenTickets := true
 	autoResolve := config.AutoResolve{State: "Done"}
 	return &config.ReceiverConfig{
 		Project:           "abc",
 		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
 		ReopenDuration:    &reopen,
 		ReopenState:       "reopened",
+		ReopenTickets:     &reopenTickets,
+		UpdateSummary:     &updateSummary,
+		UpdateDescription: &updateDescription,
 		WontFixResolution: "won't-fix",
 		AutoResolve:       &autoResolve,
 	}
@@ -701,7 +723,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 				return testNowTime
 			}
 
-			_, err := receiver.Notify(tcase.inputAlert, true, true, true, true, 32768)
+			_, err := receiver.Notify(tcase.inputAlert, true, 32768)
 			require.NoError(t, err)
 			require.Equal(t, tcase.expectedJiraIssues, fakeJira.issuesByKey)
 		}); !ok {
