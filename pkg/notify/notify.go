@@ -146,7 +146,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 			}
 		}
 
-		for CustomField := range issueCustomFields {
+		for field := range issueCustomFields {
 			if _, ok := issue.Fields.Unknowns[CustomField]; ok {
 				if issue.Fields.Unknowns[CustomField] != issueCustomFields[CustomField] {
 					retry, err = r.updateUnknownFields(issue.Key, tcontainer.MarshalMap(map[string]interface{}{
