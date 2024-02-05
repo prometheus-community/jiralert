@@ -31,6 +31,8 @@ defaults:
   # (first found is used in case of duplicates) that old project's issue will be used for
   # alert updates instead of creating on in the main project.
   other_projects: ["OTHER1", "OTHER2"]
+  # Include ticket update as comment. Optional (default: false).
+  update_in_comment: false
 
 # Receiver definitions. At least one must be defined.
 receivers:
@@ -40,6 +42,8 @@ receivers:
     project: AB
     # Copy all Prometheus labels into separate JIRA labels. Optional (default: false).
     add_group_labels: false
+    # Include ticket update as comment too. Optional (default: false).
+    update_in_comment: false
     # Will be merged with the static_labels from the default map
     static_labels: ["anotherLabel"]
 
@@ -63,6 +67,9 @@ receivers:
     # Automatically resolve jira issues when alert is resolved. Optional. If declared, ensure state is not an empty string.
     auto_resolve:
       state: 'Done'
+    # Include ticket update as comment too. Optional (default: false).
+    update_in_comment: true
+
 
 # File containing template definitions. Required.
 template: jiralert.tmpl
