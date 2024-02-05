@@ -112,7 +112,9 @@ func resolveFilepaths(baseDir string, cfg *Config, logger log.Logger) {
 		return absFp
 	}
 
-	cfg.Template = join(cfg.Template)
+	for i, v := range cfg.Template {
+		cfg.Template[i] = join(v)
+	}
 }
 
 // AutoResolve is the struct used for defining jira resolution state when alert is resolved.
@@ -180,7 +182,7 @@ func (rc *ReceiverConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 type Config struct {
 	Defaults  *ReceiverConfig   `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 	Receivers []*ReceiverConfig `yaml:"receivers,omitempty" json:"receivers,omitempty"`
-	Template  string            `yaml:"template" json:"template"`
+	Template  []string          `yaml:"template" json:"template"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline" json:"-"`
@@ -330,7 +332,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return fmt.Errorf("no receivers defined")
 	}
 
-	if c.Template == "" {
+	if len(c.Template) == 0 {
 		return fmt.Errorf("missing template file")
 	}
 
