@@ -94,8 +94,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 	issueCustomFields := tcontainer.NewMarshalMap()
 
 	for _, field := range r.conf.CustomFieldsToUpdate {
-		_, ok := r.conf.Fields[field]
-		if ok {
+		if _, ok := r.conf.Fields[field]; ok {
 			issueCustomFields[field], err = deepCopyWithTemplate(r.conf.Fields[field], r.tmpl, data)
 			if err != nil {
 				return false, errors.Wrap(err, "render issue fields")
