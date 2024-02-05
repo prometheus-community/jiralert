@@ -146,7 +146,7 @@ type ReceiverConfig struct {
 	Fields               map[string]interface{} `yaml:"fields" json:"fields"`
 	Components           []string               `yaml:"components" json:"components"`
 	StaticLabels         []string               `yaml:"static_labels" json:"static_labels"`
-	CustomFieldsToUpdate []string               `yaml:"update_always_fields" json:"update_always_fields"`
+	FieldsToUpdate []string               `yaml:"update_always_fields" json:"update_always_fields"`
 
 	// Label copy settings
 	AddGroupLabels *bool `yaml:"add_group_labels" json:"add_group_labels"`
