@@ -61,7 +61,7 @@ func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Templa
 }
 
 // Notify manages JIRA issues based on alertmanager webhook notify message.
-func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSummary bool, updateDescription bool, reopenTickets bool, maxDescriptionLength int) (bool, error) {
+func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, maxDescriptionLength int) (bool, error) {
 	project, err := r.tmpl.Execute(r.conf.Project, data)
 	if err != nil {
 		return false, errors.Wrap(err, "generate project from template")
@@ -94,7 +94,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 	if issue != nil {
 
 		// Update summary if needed.
-		if updateSummary {
+		if r.conf.UpdateSummary != nil && *r.conf.UpdateSummary {
 			if issue.Fields.Summary != issueSummary {
 				level.Debug(r.logger).Log("updateSummaryDisabled executing")
 				retry, err := r.updateSummary(issue.Key, issueSummary)
@@ -125,8 +125,8 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 			}
 		}
 
-		// update description if enabled. This has to be done after comment adding logic which needs to handle redundant commentary vs description case.
-		if updateDescription {
+		// update description after possibly adding a comment so that it's possible to detect redundant first comment
+		if r.conf.UpdateDescription != nil && *r.conf.UpdateDescription {
 			if issue.Fields.Description != issueDesc {
 				retry, err := r.updateDescription(issue.Key, issueDesc)
 				if err != nil {
@@ -155,7 +155,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 			return false, nil
 		}
 
-		if reopenTickets {
+		if r.conf.ReopenTickets != nil && *r.conf.ReopenTickets {
 			if r.conf.WontFixResolution != "" && issue.Fields.Resolution != nil &&
 				issue.Fields.Resolution.Name == r.conf.WontFixResolution {
 				level.Info(r.logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, "label", issueGroupLabel, "resolution", issue.Fields.Resolution.Name)

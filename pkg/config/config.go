@@ -153,6 +153,15 @@ type ReceiverConfig struct {
 	// Flag to enable updates in comments.
 	UpdateInComment *bool `yaml:"update_in_comment" json:"update_in_comment"`
 
+	// Flag to enable updates in summary.
+	UpdateSummary *bool `yaml:"update_summary" json:"update_summary"`
+
+	// Flag to enable updates in description.
+	UpdateDescription *bool `yaml:"update_description" json:"update_description"`
+
+	// Flag to enable reopen tickets.
+	ReopenTickets *bool `yaml:"reopen_tickets" json:"reopen_tickets"`
+
 	// Flag to auto-resolve opened issue when the alert is resolved.
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
 
@@ -323,6 +332,12 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		}
 		if rc.UpdateInComment == nil {
 			rc.UpdateInComment = c.Defaults.UpdateInComment
+		}
+		if rc.UpdateSummary == nil {
+			rc.UpdateSummary = c.Defaults.UpdateSummary
+		}
+		if rc.UpdateDescription == nil {
+			rc.UpdateDescription = c.Defaults.UpdateDescription
 		}
 	}
 

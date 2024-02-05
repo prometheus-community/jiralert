@@ -48,6 +48,9 @@ defaults:
   reopen_duration: 0h
   update_in_comment: true
   static_labels: ["defaultlabel"]
+  update_summary: true
+  update_description: true
+  reopen_tickets: true
 
 # Receiver definitions. At least one must be defined.
 receivers:
@@ -58,6 +61,9 @@ receivers:
     # Copy all Prometheus labels into separate JIRA labels. Optional (default: false).
     add_group_labels: false
     update_in_comment: false
+    update_summary: false
+    update_description: true
+    reopen_tickets: false
     static_labels: ["somelabel"]
 
   - name: 'jira-xy'
@@ -132,6 +138,9 @@ type receiverTestConfig struct {
 	AddGroupLabels    *bool    `yaml:"add_group_labels,omitempty"`
 	UpdateInComment   *bool    `yaml:"update_in_comment,omitempty"`
 	StaticLabels      []string `yaml:"static_labels" json:"static_labels"`
+	UpdateSummary     *bool    `yaml:"update_summary" json:"update_summary"`
+	UpdateDescription *bool    `yaml:"update_description" json:"update_description"`
+	ReopenTickets     *bool    `yaml:"reopen_tickets" json:"reopen_tickets"`
 
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
 
@@ -320,6 +329,8 @@ func TestReceiverOverrides(t *testing.T) {
 	addGroupLabelsFalseVal := false
 	updateInCommentTrueVal := true
 	updateInCommentFalseVal := false
+	updateSummaryFalseVal := false
+	updateDescriptionFalseVal := false
 
 	// We'll override one key at a time and check the value in the receiver.
 	for _, test := range []struct {
@@ -340,6 +351,8 @@ func TestReceiverOverrides(t *testing.T) {
 		{"AddGroupLabels", &addGroupLabelsTrueVal, &addGroupLabelsTrueVal},
 		{"UpdateInComment", &updateInCommentFalseVal, &updateInCommentFalseVal},
 		{"UpdateInComment", &updateInCommentTrueVal, &updateInCommentTrueVal},
+		{"UpdateSummary", &updateSummaryFalseVal, &updateSummaryFalseVal},
+		{"UpdateDescription", &updateDescriptionFalseVal, &updateDescriptionFalseVal},
 		{"AutoResolve", &AutoResolve{State: "Done"}, &autoResolve},
 		{"StaticLabels", []string{"somelabel"}, []string{"somelabel"}},
 	} {
@@ -379,6 +392,8 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 	r := receiverTestConfig{}
 	addGroupLabelsDefaultVal := true
 	updateInCommentDefaultVal := true
+	updateSummaryDefaultVal := true
+	updateDescriptionDefaultVal := true
 
 	for _, name := range mandatory {
 		var value reflect.Value
@@ -399,6 +414,10 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 			value = reflect.ValueOf(&addGroupLabelsDefaultVal)
 		} else if name == "UpdateInComment" {
 			value = reflect.ValueOf(&updateInCommentDefaultVal)
+		} else if name == "UpdateSummary" {
+			value = reflect.ValueOf(&updateSummaryDefaultVal)
+		} else if name == "UpdateDescription" {
+			value = reflect.ValueOf(&updateDescriptionDefaultVal)
 		} else if name == "AutoResolve" {
 			value = reflect.ValueOf(&AutoResolve{State: "Done"})
 		} else if name == "StaticLabels" {

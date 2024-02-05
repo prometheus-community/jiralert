@@ -33,6 +33,9 @@ defaults:
   other_projects: ["OTHER1", "OTHER2"]
   # Include ticket update as comment. Optional (default: false).
   update_in_comment: false
+  # Enable or disable automatic updates to the summary and description fields. Set to False to prevent updates. This setting can also be configured at the receiver level to override the global default.
+  update_summary: True
+  update_description: True
 
 # Receiver definitions. At least one must be defined.
 receivers:
