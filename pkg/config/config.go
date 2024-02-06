@@ -140,13 +140,13 @@ type ReceiverConfig struct {
 	ReopenDuration *Duration `yaml:"reopen_duration" json:"reopen_duration"`
 
 	// Optional issue fields
-	Priority             string                 `yaml:"priority" json:"priority"`
-	Description          string                 `yaml:"description" json:"description"`
-	WontFixResolution    string                 `yaml:"wont_fix_resolution" json:"wont_fix_resolution"`
-	Fields               map[string]interface{} `yaml:"fields" json:"fields"`
-	Components           []string               `yaml:"components" json:"components"`
-	StaticLabels         []string               `yaml:"static_labels" json:"static_labels"`
-	FieldsToUpdate []string               `yaml:"update_always_fields" json:"update_always_fields"`
+	Priority          string                 `yaml:"priority" json:"priority"`
+	Description       string                 `yaml:"description" json:"description"`
+	WontFixResolution string                 `yaml:"wont_fix_resolution" json:"wont_fix_resolution"`
+	Fields            map[string]interface{} `yaml:"fields" json:"fields"`
+	Components        []string               `yaml:"components" json:"components"`
+	StaticLabels      []string               `yaml:"static_labels" json:"static_labels"`
+	FieldsToUpdate    []string               `yaml:"update_always_fields" json:"update_always_fields"`
 
 	// Label copy settings
 	AddGroupLabels *bool `yaml:"add_group_labels" json:"add_group_labels"`
@@ -313,8 +313,8 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 				}
 			}
 		}
-		if len(c.Defaults.CustomFieldsToUpdate) > 0 {
-			rc.CustomFieldsToUpdate = c.Defaults.CustomFieldsToUpdate
+		if len(c.Defaults.FieldsToUpdate) > 0 {
+			rc.FieldsToUpdate = c.Defaults.FieldsToUpdate
 		}
 		if len(c.Defaults.StaticLabels) > 0 {
 			rc.StaticLabels = append(rc.StaticLabels, c.Defaults.StaticLabels...)

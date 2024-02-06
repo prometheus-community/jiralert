@@ -134,7 +134,7 @@ type receiverTestConfig struct {
 	Description          string   `yaml:"description,omitempty"`
 	WontFixResolution    string   `yaml:"wont_fix_resolution,omitempty"`
 	AddGroupLabels       *bool    `yaml:"add_group_labels,omitempty"`
-	UpdateInComment   *bool    `yaml:"update_in_comment,omitempty"`
+	UpdateInComment      *bool    `yaml:"update_in_comment,omitempty"`
 	StaticLabels         []string `yaml:"static_labels" json:"static_labels"`
 	CustomFieldsToUpdate []string `yaml:"update_always_fields,omitempty"`
 

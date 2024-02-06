@@ -93,7 +93,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 
 	issueCustomFields := tcontainer.NewMarshalMap()
 
-	for _, field := range r.conf.CustomFieldsToUpdate {
+	for _, field := range r.conf.FieldsToUpdate {
 		if _, ok := r.conf.Fields[field]; ok {
 			issueCustomFields[field], err = deepCopyWithTemplate(r.conf.Fields[field], r.tmpl, data)
 			if err != nil {
@@ -147,10 +147,10 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 		}
 
 		for field := range issueCustomFields {
-			if _, ok := issue.Fields.Unknowns[CustomField]; ok {
-				if issue.Fields.Unknowns[CustomField] != issueCustomFields[CustomField] {
+			if _, ok := issue.Fields.Unknowns[field]; ok {
+				if issue.Fields.Unknowns[field] != issueCustomFields[field] {
 					retry, err = r.updateUnknownFields(issue.Key, tcontainer.MarshalMap(map[string]interface{}{
-						CustomField: issueCustomFields[CustomField],
+						field: issueCustomFields[field],
 					}))
 					if err != nil {
 						return retry, err
@@ -340,7 +340,7 @@ func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bo
 	projectList := "'" + strings.Join(projects, "', '") + "'"
 	query := fmt.Sprintf("project in(%s) and labels=%q order by resolutiondate desc", projectList, issueLabel)
 	options := &jira.SearchOptions{
-		Fields:     append([]string{"summary", "status", "resolution", "resolutiondate", "description", "comment"}, r.conf.CustomFieldsToUpdate...),
+		Fields:     append([]string{"summary", "status", "resolution", "resolutiondate", "description", "comment"}, r.conf.FieldsToUpdate...),
 		MaxResults: 2,
 	}
 
