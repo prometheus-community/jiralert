@@ -136,7 +136,7 @@ type receiverTestConfig struct {
 	AddGroupLabels       *bool    `yaml:"add_group_labels,omitempty"`
 	UpdateInComment      *bool    `yaml:"update_in_comment,omitempty"`
 	StaticLabels         []string `yaml:"static_labels" json:"static_labels"`
-	CustomFieldsToUpdate []string `yaml:"update_always_fields,omitempty"`
+	FieldsToUpdate []string `yaml:"update_always_fields,omitempty"`
 
 	AutoResolve *AutoResolve `yaml:"auto_resolve" json:"auto_resolve"`
 
