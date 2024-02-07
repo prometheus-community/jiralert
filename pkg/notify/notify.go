@@ -91,6 +91,17 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 		issueDesc = issueDesc[:maxDescriptionLength]
 	}
 
+	issueCustomFields := tcontainer.NewMarshalMap()
+
+	for _, field := range r.conf.FieldsToUpdate {
+		if _, ok := r.conf.Fields[field]; ok {
+			issueCustomFields[field], err = deepCopyWithTemplate(r.conf.Fields[field], r.tmpl, data)
+			if err != nil {
+				return false, errors.Wrap(err, "render issue fields")
+			}
+		}
+	}
+
 	if issue != nil {
 
 		// Update summary if needed.
@@ -131,6 +142,19 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 				retry, err := r.updateDescription(issue.Key, issueDesc)
 				if err != nil {
 					return retry, err
+				}
+			}
+		}
+
+		for field := range issueCustomFields {
+			if _, ok := issue.Fields.Unknowns[field]; ok {
+				if issue.Fields.Unknowns[field] != issueCustomFields[field] {
+					retry, err = r.updateUnknownFields(issue.Key, tcontainer.MarshalMap(map[string]interface{}{
+						field: issueCustomFields[field],
+					}))
+					if err != nil {
+						return retry, err
+					}
 				}
 			}
 		}
@@ -316,7 +340,7 @@ func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bo
 	projectList := "'" + strings.Join(projects, "', '") + "'"
 	query := fmt.Sprintf("project in(%s) and labels=%q order by resolutiondate desc", projectList, issueLabel)
 	options := &jira.SearchOptions{
-		Fields:     []string{"summary", "status", "resolution", "resolutiondate", "description", "comment"},
+		Fields:     append([]string{"summary", "status", "resolution", "resolutiondate", "description", "comment"}, r.conf.FieldsToUpdate...),
 		MaxResults: 2,
 	}
 
@@ -415,6 +439,21 @@ func (r *Receiver) addComment(issueKey string, content string) (bool, error) {
 		return handleJiraErrResponse("Issue.AddComment", resp, err, r.logger)
 	}
 	level.Debug(r.logger).Log("msg", "added comment to issue", "key", issueKey, "id", comment.ID)
+	return false, nil
+}
+
+func (r *Receiver) updateUnknownFields(issueKey string, unknowns tcontainer.MarshalMap) (bool, error) {
+	level.Debug(r.logger).Log("msg", "updating issue with unknown fields", "key", issueKey, "unknowns", unknowns)
+
+	issueUpdate := &jira.Issue{
+		Key: issueKey,
+		Fields: &jira.IssueFields{
+			Unknowns: unknowns,
+		},
+	}
+	if _, resp, err := r.client.UpdateWithOptions(issueUpdate, nil); err != nil {
+		return handleJiraErrResponse("Issue.UpdateUnknownFields", resp, err, r.logger)
+	}
 	return false, nil
 }
 

@@ -146,6 +146,7 @@ type ReceiverConfig struct {
 	Fields            map[string]interface{} `yaml:"fields" json:"fields"`
 	Components        []string               `yaml:"components" json:"components"`
 	StaticLabels      []string               `yaml:"static_labels" json:"static_labels"`
+	FieldsToUpdate    []string               `yaml:"update_always_fields" json:"update_always_fields"`
 
 	// Label copy settings
 	AddGroupLabels *bool `yaml:"add_group_labels" json:"add_group_labels"`
@@ -311,6 +312,9 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 					rc.Fields[key] = value
 				}
 			}
+		}
+		if len(c.Defaults.FieldsToUpdate) > 0 {
+			rc.FieldsToUpdate = c.Defaults.FieldsToUpdate
 		}
 		if len(c.Defaults.StaticLabels) > 0 {
 			rc.StaticLabels = append(rc.StaticLabels, c.Defaults.StaticLabels...)
