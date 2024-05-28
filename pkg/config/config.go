@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-  "github.com/andygrunwald/go-jira"
+	"github.com/andygrunwald/go-jira"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 
@@ -199,26 +199,26 @@ func (c Config) String() string {
 
 // GetJiraFieldKey returns the jira key associated to a field.
 func GetJiraFieldKey(client *jira.Client, project string, issueType string, field string) (string, error) {
-  options := &jira.GetQueryOptions{
-    ProjectKeys: project,
-    Expand: "projects.issuetypes.fields",
-  }
-  meta, _, err := client.Issue.GetCreateMetaWithOptions(options)
-  if err != nil {
-    return "", err
-  }
-  it := meta.Projects[0].GetIssueTypeWithName(issueType)
-  if it == nil {
-    return "", fmt.Errorf("jira: Issue type %s not found", issueType)
-  }
-  fields, err := it.GetAllFields()
-  if err != nil {
-    return "", err
-  }
-  if val, ok := fields[field]; ok {
-    return val, nil
-  }
-  return "", fmt.Errorf("jira: Field %s not found in %s issue type", field, issueType)
+	options := &jira.GetQueryOptions{
+		ProjectKeys: project,
+		Expand:      "projects.issuetypes.fields",
+	}
+	meta, _, err := client.Issue.GetCreateMetaWithOptions(options)
+	if err != nil {
+		return "", err
+	}
+	it := meta.Projects[0].GetIssueTypeWithName(issueType)
+	if it == nil {
+		return "", fmt.Errorf("jira: Issue type %s not found", issueType)
+	}
+	fields, err := it.GetAllFields()
+	if err != nil {
+		return "", err
+	}
+	if val, ok := fields[field]; ok {
+		return val, nil
+	}
+	return "", fmt.Errorf("jira: Field %s not found in %s issue type", field, issueType)
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -325,14 +325,14 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			rc.WontFixResolution = c.Defaults.WontFixResolution
 		}
 		if rc.FieldLabels == "" {
-      if c.Defaults.FieldLabels != "" {
-			  rc.FieldLabels = c.Defaults.FieldLabels
-      } else {
-			  rc.FieldLabels = "Labels"
-      }
+			if c.Defaults.FieldLabels != "" {
+				rc.FieldLabels = c.Defaults.FieldLabels
+			} else {
+				rc.FieldLabels = "Labels"
+			}
 		}
 
-    // descover jira labels key. 
+		// descover jira labels key.
 		var client *jira.Client
 		var err error
 		if rc.User != "" && rc.Password != "" {
@@ -352,13 +352,12 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			return err
 		}
 
-    rc.FieldLabelsKey, err = GetJiraFieldKey(client, rc.Project, rc.IssueType, rc.FieldLabels)
-    if err != nil {
-      return err
-    }
-    fmt.Printf("\n\nrc.FieldLabelsKey=%s\n",rc.FieldLabels)
-    fmt.Printf("rc.FieldLabelsKey=%s\n",rc.FieldLabelsKey)
-
+		rc.FieldLabelsKey, err = GetJiraFieldKey(client, rc.Project, rc.IssueType, rc.FieldLabels)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("\n\nrc.FieldLabelsKey=%s\n", rc.FieldLabels)
+		fmt.Printf("rc.FieldLabelsKey=%s\n", rc.FieldLabelsKey)
 
 		if rc.AutoResolve != nil {
 			if rc.AutoResolve.State == "" {

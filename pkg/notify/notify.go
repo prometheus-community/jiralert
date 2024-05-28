@@ -193,11 +193,11 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 			Unknowns:    tcontainer.NewMarshalMap(),
 		},
 	}
-  if r.conf.FieldLabels == "Labels" {
-    issue.Fields.Labels = append(staticLabels, issueGroupLabel)
-  } else {
-    issue.Fields.Unknowns[r.conf.FieldLabelsKey] = append(staticLabels, issueGroupLabel)
-  }
+	if r.conf.FieldLabels == "Labels" {
+		issue.Fields.Labels = append(staticLabels, issueGroupLabel)
+	} else {
+		issue.Fields.Unknowns[r.conf.FieldLabelsKey] = append(staticLabels, issueGroupLabel)
+	}
 	if r.conf.Priority != "" {
 		issuePrio, err := r.tmpl.Execute(r.conf.Priority, data)
 		if err != nil {
@@ -316,14 +316,14 @@ func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string 
 }
 
 func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bool, error) {
-  var labelKey string
+	var labelKey string
 	// Search multiple projects in case issue was moved and further alert firings are desired in existing JIRA.
 	projectList := "'" + strings.Join(projects, "', '") + "'"
-  if r.conf.FieldLabels == "Labels" {
-    labelKey = "labels"
-  } else {
-    labelKey = fmt.Sprintf("cf[%s]", strings.Split(r.conf.FieldLabelsKey, "_")[1])
-  }
+	if r.conf.FieldLabels == "Labels" {
+		labelKey = "labels"
+	} else {
+		labelKey = fmt.Sprintf("cf[%s]", strings.Split(r.conf.FieldLabelsKey, "_")[1])
+	}
 	query := fmt.Sprintf("project in(%s) and %s=%q order by resolutiondate desc", projectList, labelKey, issueLabel)
 	options := &jira.SearchOptions{
 		Fields:     []string{"summary", "status", "resolution", "resolutiondate", "description", "comment"},
