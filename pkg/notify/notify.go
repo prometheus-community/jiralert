@@ -137,7 +137,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 
 		if len(data.Alerts.Firing()) == 0 {
 			if r.conf.AutoResolve != nil {
-				level.Debug(r.logger).Log("msg", "no firing alert; resolving issue", "key", issue.Key, "label", issueGroupLabel)
+				level.Debug(r.logger).Log("msg", "no firing alert; resolving issue", "key", issue.Key, r.conf.FieldLabels, issueGroupLabel)
 				retry, err := r.resolveIssue(issue.Key)
 				if err != nil {
 					return retry, err
@@ -145,24 +145,24 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 				return false, nil
 			}
 
-			level.Debug(r.logger).Log("msg", "no firing alert; summary checked, nothing else to do.", "key", issue.Key, "label", issueGroupLabel)
+			level.Debug(r.logger).Log("msg", "no firing alert; summary checked, nothing else to do.", "key", issue.Key, r.conf.FieldLabels, issueGroupLabel)
 			return false, nil
 		}
 
 		// The set of JIRA status categories is fixed, this is a safe check to make.
 		if issue.Fields.Status.StatusCategory.Key != "done" {
-			level.Debug(r.logger).Log("msg", "issue is unresolved, all is done", "key", issue.Key, "label", issueGroupLabel)
+			level.Debug(r.logger).Log("msg", "issue is unresolved, all is done", "key", issue.Key, r.conf.FieldLabels, issueGroupLabel)
 			return false, nil
 		}
 
 		if reopenTickets {
 			if r.conf.WontFixResolution != "" && issue.Fields.Resolution != nil &&
 				issue.Fields.Resolution.Name == r.conf.WontFixResolution {
-				level.Info(r.logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, "label", issueGroupLabel, "resolution", issue.Fields.Resolution.Name)
+				level.Info(r.logger).Log("msg", "issue was resolved as won't fix, not reopening", "key", issue.Key, r.conf.FieldLabels, issueGroupLabel, "resolution", issue.Fields.Resolution.Name)
 				return false, nil
 			}
 
-			level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, "label", issueGroupLabel)
+			level.Info(r.logger).Log("msg", "issue was recently resolved, reopening", "key", issue.Key, r.conf.FieldLabels, issueGroupLabel)
 			return r.reopen(issue.Key)
 		}
 
@@ -171,11 +171,11 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 	}
 
 	if len(data.Alerts.Firing()) == 0 {
-		level.Debug(r.logger).Log("msg", "no firing alert; nothing to do.", "label", issueGroupLabel)
+		level.Debug(r.logger).Log("msg", "no firing alert; nothing to do.", r.conf.FieldLabels, issueGroupLabel)
 		return false, nil
 	}
 
-	level.Info(r.logger).Log("msg", "no recent matching issue found, creating new issue", "label", issueGroupLabel)
+	level.Info(r.logger).Log("msg", "no recent matching issue found, creating new issue", r.conf.FieldLabels, issueGroupLabel)
 
 	issueType, err := r.tmpl.Execute(r.conf.IssueType, data)
 	if err != nil {
@@ -190,10 +190,14 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 			Type:        jira.IssueType{Name: issueType},
 			Description: issueDesc,
 			Summary:     issueSummary,
-			Labels:      append(staticLabels, issueGroupLabel),
 			Unknowns:    tcontainer.NewMarshalMap(),
 		},
 	}
+  if r.conf.FieldLabels == "Labels" {
+    issue.Fields.Labels = append(staticLabels, issueGroupLabel)
+  } else {
+    issue.Fields.Unknowns[r.conf.FieldLabelsKey] = append(staticLabels, issueGroupLabel)
+  }
 	if r.conf.Priority != "" {
 		issuePrio, err := r.tmpl.Execute(r.conf.Priority, data)
 		if err != nil {
@@ -312,9 +316,15 @@ func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string 
 }
 
 func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bool, error) {
+  var labelKey string
 	// Search multiple projects in case issue was moved and further alert firings are desired in existing JIRA.
 	projectList := "'" + strings.Join(projects, "', '") + "'"
-	query := fmt.Sprintf("project in(%s) and labels=%q order by resolutiondate desc", projectList, issueLabel)
+  if r.conf.FieldLabels == "Labels" {
+    labelKey = "labels"
+  } else {
+    labelKey = fmt.Sprintf("cf[%s]", strings.Split(r.conf.FieldLabelsKey, "_")[1])
+  }
+	query := fmt.Sprintf("project in(%s) and %s=%q order by resolutiondate desc", projectList, labelKey, issueLabel)
 	options := &jira.SearchOptions{
 		Fields:     []string{"summary", "status", "resolution", "resolutiondate", "description", "comment"},
 		MaxResults: 2,
@@ -361,7 +371,7 @@ func (r *Receiver) findIssueToReuse(project string, issueGroupLabel string) (*ji
 
 	resolutionTime := time.Time(issue.Fields.Resolutiondate)
 	if resolutionTime != (time.Time{}) && resolutionTime.Add(time.Duration(*r.conf.ReopenDuration)).Before(r.timeNow()) && *r.conf.ReopenDuration != 0 {
-		level.Debug(r.logger).Log("msg", "existing resolved issue is too old to reopen, skipping", "key", issue.Key, "label", issueGroupLabel, "resolution_time", resolutionTime.Format(time.RFC3339), "reopen_duration", *r.conf.ReopenDuration)
+		level.Debug(r.logger).Log("msg", "existing resolved issue is too old to reopen, skipping", "key", issue.Key, r.conf.FieldLabels, issueGroupLabel, "resolution_time", resolutionTime.Format(time.RFC3339), "reopen_duration", *r.conf.ReopenDuration)
 		return nil, false, nil
 	}
 
@@ -424,6 +434,7 @@ func (r *Receiver) reopen(issueKey string) (bool, error) {
 
 func (r *Receiver) create(issue *jira.Issue) (bool, error) {
 	level.Debug(r.logger).Log("msg", "create", "issue", fmt.Sprintf("%+v", *issue.Fields))
+	level.Debug(r.logger).Log("msg", "create", "issue", fmt.Sprintf("%s", *&issue.Fields.Labels))
 	newIssue, resp, err := r.client.Create(issue)
 	if err != nil {
 		return handleJiraErrResponse("Issue.Create", resp, err, r.logger)
