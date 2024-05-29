@@ -168,6 +168,7 @@ func testReceiverConfig1() *config.ReceiverConfig {
 		ReopenDuration:    &reopen,
 		ReopenState:       "reopened",
 		WontFixResolution: "won't-fix",
+		FieldLabels:       "Labels",
 	}
 }
 
@@ -180,6 +181,7 @@ func testReceiverConfig2() *config.ReceiverConfig {
 		ReopenState:       "reopened",
 		Description:       `{{ .Alerts.Firing | len }}`,
 		WontFixResolution: "won't-fix",
+		FieldLabels:       "Labels",
 	}
 }
 
@@ -193,6 +195,7 @@ func testReceiverConfigAddComments() *config.ReceiverConfig {
 		ReopenState:       "reopened",
 		Description:       `{{ .Alerts.Firing | len }}`,
 		WontFixResolution: "won't-fix",
+		FieldLabels:       "Labels",
 		UpdateInComment:   &updateInCommentValue,
 	}
 }
@@ -206,6 +209,7 @@ func testReceiverConfigAutoResolve() *config.ReceiverConfig {
 		ReopenDuration:    &reopen,
 		ReopenState:       "reopened",
 		WontFixResolution: "won't-fix",
+		FieldLabels:       "Labels",
 		AutoResolve:       &autoResolve,
 	}
 }
@@ -218,6 +222,7 @@ func testReceiverConfigWithStaticLabels() *config.ReceiverConfig {
 		ReopenDuration:    &reopen,
 		ReopenState:       "reopened",
 		WontFixResolution: "won't-fix",
+		FieldLabels:       "Labels",
 		StaticLabels:      []string{"somelabel"},
 	}
 }

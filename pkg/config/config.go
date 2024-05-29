@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/andygrunwald/go-jira"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 
@@ -143,6 +144,8 @@ type ReceiverConfig struct {
 	Priority          string                 `yaml:"priority" json:"priority"`
 	Description       string                 `yaml:"description" json:"description"`
 	WontFixResolution string                 `yaml:"wont_fix_resolution" json:"wont_fix_resolution"`
+	FieldLabels       string                 `yaml:"field_labels" json:"field_labels"`
+	FieldLabelsKey    string                 `yaml:"field_labels_key" json:"field_labels_key"`
 	Fields            map[string]interface{} `yaml:"fields" json:"fields"`
 	Components        []string               `yaml:"components" json:"components"`
 	StaticLabels      []string               `yaml:"static_labels" json:"static_labels"`
@@ -192,6 +195,58 @@ func (c Config) String() string {
 		return fmt.Sprintf("<error creating config string: %s>", err)
 	}
 	return string(b)
+}
+
+// GetJiraFieldKey returns the jira key associated to a field.
+func (c *Config) GetJiraFieldKey() error {
+	var missingField []string
+	for _, rc := range c.Receivers {
+		// descover jira labels key.
+		var client *jira.Client
+		var err error
+		if rc.User != "" && rc.Password != "" {
+			tp := jira.BasicAuthTransport{
+				Username: rc.User,
+				Password: string(rc.Password),
+			}
+			client, err = jira.NewClient(tp.Client(), rc.APIURL)
+		} else if rc.PersonalAccessToken != "" {
+			tp := jira.PATAuthTransport{
+				Token: string(rc.PersonalAccessToken),
+			}
+			client, err = jira.NewClient(tp.Client(), rc.APIURL)
+		}
+
+		if err != nil {
+			return err
+		}
+
+		options := &jira.GetQueryOptions{
+			ProjectKeys: rc.Project,
+			Expand:      "projects.issuetypes.fields",
+		}
+		meta, _, err := client.Issue.GetCreateMetaWithOptions(options)
+		if err != nil {
+			return err
+		}
+		it := meta.Projects[0].GetIssueTypeWithName(rc.IssueType)
+		if it == nil {
+			return fmt.Errorf("jira: Issue type %s not found", rc.IssueType)
+		}
+		fields, err := it.GetAllFields()
+		if err != nil {
+			return err
+		}
+		if val, ok := fields[rc.FieldLabels]; ok {
+			rc.FieldLabelsKey = val
+			continue
+		}
+		missingField = append(missingField, rc.FieldLabels)
+	}
+	if len(missingField) != 0 {
+		return fmt.Errorf("jira: Fields %s ", missingField)
+	}
+	return nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -297,6 +352,14 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		if rc.WontFixResolution == "" && c.Defaults.WontFixResolution != "" {
 			rc.WontFixResolution = c.Defaults.WontFixResolution
 		}
+		if rc.FieldLabels == "" {
+			if c.Defaults.FieldLabels != "" {
+				rc.FieldLabels = c.Defaults.FieldLabels
+			} else {
+				rc.FieldLabels = "Labels"
+			}
+		}
+
 		if rc.AutoResolve != nil {
 			if rc.AutoResolve.State == "" {
 				return fmt.Errorf("bad config in receiver %q, 'auto_resolve' was defined with empty 'state' field", rc.Name)
