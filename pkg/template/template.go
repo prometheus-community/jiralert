@@ -38,7 +38,6 @@ var funcs = template.FuncMap{
 	"title": func(title string) string {
 		return cases.Title(language.AmericanEnglish).String(title)
 	},
-	// cases.Title,
 	// join is equal to strings.Join but inverts the argument order
 	// for easier pipelining in templates.
 	"join": func(sep string, s []string) string {
