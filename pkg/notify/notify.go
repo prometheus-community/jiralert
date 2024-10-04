@@ -334,7 +334,12 @@ func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bo
 
 	issue := issues[0]
 	if len(issues) > 1 {
-		level.Warn(r.logger).Log("msg", "more than one issue matched, picking most recently resolved", "query", query, "issues", issues, "picked", issue)
+		keys := make([]string, len(issues))
+		for i, iss := range issues {
+			keys[i] = iss.Key
+		}
+		issuesKeys := strings.Join(keys, ", ")
+		level.Warn(r.logger).Log("msg", "more than one issue matched, picking most recently resolved", "query", query, "issues", issuesKeys, "picked", issue.Key)
 	}
 
 	level.Debug(r.logger).Log("msg", "found", "issue", issue, "query", query)
