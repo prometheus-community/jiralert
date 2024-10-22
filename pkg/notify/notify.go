@@ -86,8 +86,13 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 		return false, errors.Wrap(err, "render issue description")
 	}
 
+	if len(issueSummary) > 255 {
+		level.Info(r.logger).Log("msg", "truncating summary", "original", len(issueSummary), "limit", 255)
+		issueSummary = issueDesc[:255]
+	}
+
 	if len(issueDesc) > maxDescriptionLength {
-		level.Warn(r.logger).Log("msg", "truncating description", "original", len(issueDesc), "limit", maxDescriptionLength)
+		level.Info(r.logger).Log("msg", "truncating description", "original", len(issueDesc), "limit", maxDescriptionLength)
 		issueDesc = issueDesc[:maxDescriptionLength]
 	}
 
