@@ -88,7 +88,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 
 	if len(issueSummary) > 255 {
 		level.Info(r.logger).Log("msg", "truncating summary", "original", len(issueSummary), "limit", 255)
-		issueSummary = issueDesc[:255]
+		issueSummary = issueSummary[:255]
 	}
 
 	if len(issueDesc) > maxDescriptionLength {
