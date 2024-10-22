@@ -23,7 +23,6 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
-	"golang.org/x/text/cases"
 )
 
 type Template struct {
@@ -34,7 +33,7 @@ type Template struct {
 var funcs = template.FuncMap{
 	"toUpper": strings.ToUpper,
 	"toLower": strings.ToLower,
-	"title":   cases.Title,
+	"title":   strings.Title, //nolint:staticcheck // TODO(beorn7): Need to come up with a replacement using the cases package.
 	// join is equal to strings.Join but inverts the argument order
 	// for easier pipelining in templates.
 	"join": func(sep string, s []string) string {
