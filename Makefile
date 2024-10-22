@@ -3,7 +3,7 @@ DOCKER_IMAGE_NAME       ?= jiralert
 
 .PHONY: build
 build:
-	go build -ldflags "-w -s" -a -tags netgo -o jiralert ./cmd/jiralert
+	go build -ldflags "-w -s -X main.Version=github.com/cloudeteer/jiralert@$$(git rev-parse --short HEAD)" -a -tags netgo -o jiralert ./cmd/jiralert
 
 .Phone: docker-build
 docker-build:
