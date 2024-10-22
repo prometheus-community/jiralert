@@ -1,9 +1,8 @@
 name: build-docker
 
 on:
-  branch:
-    - master
-    - main
+  push:
+    branches: ["master"]
 
 jobs:
   build:
