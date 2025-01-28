@@ -1,0 +1,33 @@
+version: 2.1
+
+executors:
+  go:
+    docker:
+      - image: golang:1.19
+
+orbs:
+  go: circleci/go@2.2.4
+  aws-ecr: circleci/aws-ecr@9.0.1
+
+jobs:
+  build-and-push:
+    executor: aws-ecr/default
+    steps:
+     - aws-ecr/build_and_push_image:
+          auth:
+            - aws-cli/setup
+          region: us-west-2
+          repo: jiralert
+          tag: $CIRCLE_SHA1
+          platform: linux/amd64,linux/arm64
+          create_repo: true
+
+workflows:
+  release:
+    when:
+      equal: [master, << pipline.git.branch >>]
+    jobs:
+      - build-and-push:
+          context:
+          - prod
+          - prod-us-west-2
