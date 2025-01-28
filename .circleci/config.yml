@@ -25,7 +25,7 @@ jobs:
 workflows:
   release:
     when:
-      equal: [master, << pipline.git.branch >>]
+      equal: [master, << pipeline.git.branch >>]
     jobs:
       - build-and-push:
           context:
