@@ -2,7 +2,7 @@ version: 2.1
 
 orbs:
   go: circleci/go@2.2.4
-  aws-ecr: circleci/aws-ecr@9.0.1
+  aws-ecr: circleci/aws-ecr@9.3.7
   aws-cli: circleci/aws-cli@4.1.1
 
 jobs:
