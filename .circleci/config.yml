@@ -1,13 +1,9 @@
 version: 2.1
 
-executors:
-  go:
-    docker:
-      - image: golang:1.19
-
 orbs:
   go: circleci/go@2.2.4
   aws-ecr: circleci/aws-ecr@9.0.1
+  aws-cli: circleci/aws-cli@4.1.1
 
 jobs:
   build-and-push:
