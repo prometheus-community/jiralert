@@ -8,3 +8,13 @@ Annotations:
 {{ end }}
 Source: {{ .GeneratorURL }}
 {{ end }}{{ end }}
+
+{{ define "jira.priority" }}
+  {{- with index .Alerts 0 -}}
+    {{- if .Labels.priority -}}
+      {{- .Labels.priority -}}
+    {{- else -}}
+      "High"  # Default value if priority is not set
+    {{- end -}}
+  {{- end -}}
+{{ end }}

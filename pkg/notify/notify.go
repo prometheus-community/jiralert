@@ -61,7 +61,7 @@ func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Templa
 }
 
 // Notify manages JIRA issues based on alertmanager webhook notify message.
-func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSummary bool, updateDescription bool, reopenTickets bool, maxDescriptionLength int) (bool, error) {
+func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updatePriority bool, updateSummary bool, updateDescription bool, reopenTickets bool, maxDescriptionLength int) (bool, error) {
 	project, err := r.tmpl.Execute(r.conf.Project, data)
 	if err != nil {
 		return false, errors.Wrap(err, "generate project from template")
@@ -98,6 +98,21 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 			if issue.Fields.Summary != issueSummary {
 				level.Debug(r.logger).Log("updateSummaryDisabled executing")
 				retry, err := r.updateSummary(issue.Key, issueSummary)
+				if err != nil {
+					return retry, err
+				}
+			}
+		}
+
+		if updatePriority && issue.Fields.Priority != nil {
+			issuePriority, err := r.tmpl.Execute(r.conf.Priority, data)
+			if err != nil {
+				return false, errors.Wrap(err, "generate priority from template")
+			}
+
+			if issue.Fields.Priority.Name != issuePriority {
+				level.Debug(r.logger).Log("msg", "updating priority", "key", issue.Key, "new_priority", issuePriority)
+				retry, err := r.updatePriority(issue.Key, issuePriority)
 				if err != nil {
 					return retry, err
 				}
@@ -316,7 +331,7 @@ func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bo
 	projectList := "'" + strings.Join(projects, "', '") + "'"
 	query := fmt.Sprintf("project in(%s) and labels=%q order by resolutiondate desc", projectList, issueLabel)
 	options := &jira.SearchOptions{
-		Fields:     []string{"summary", "status", "resolution", "resolutiondate", "description", "comment"},
+		Fields:     []string{"summary", "status", "resolution", "resolutiondate", "description", "comment", "priority"},
 		MaxResults: 2,
 	}
 
@@ -383,6 +398,24 @@ func (r *Receiver) updateSummary(issueKey string, summary string) (bool, error) 
 		return handleJiraErrResponse("Issue.UpdateWithOptions", resp, err, r.logger)
 	}
 	level.Debug(r.logger).Log("msg", "issue summary updated", "key", issue.Key, "id", issue.ID)
+	return false, nil
+}
+
+func (r *Receiver) updatePriority(issueKey string, priority string) (bool, error) {
+	level.Debug(r.logger).Log("msg", "updating issue with new priority", "key", issueKey, "priority", priority)
+	issueUpdate := &jira.Issue{
+		Key: issueKey,
+		Fields: &jira.IssueFields{
+			Priority: &jira.Priority{
+				Name: priority,
+			},
+		},
+	}
+	issue, resp, err := r.client.UpdateWithOptions(issueUpdate, nil)
+	if err != nil {
+		return handleJiraErrResponse("Issue.UpdateWithOptions", resp, err, r.logger)
+	}
+	level.Debug(r.logger).Log("msg", "issue priority updated", "key", issue.Key, "id", issue.ID, "response", resp)
 	return false, nil
 }
 
