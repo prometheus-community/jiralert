@@ -61,7 +61,7 @@ func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Templa
 }
 
 // Notify manages JIRA issues based on alertmanager webhook notify message.
-func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSummary bool, updateDescription bool, reopenTickets bool, maxDescriptionLength int) (bool, error) {
+func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSummary bool, updateDescription bool, reopenTickets bool, maxDescriptionLength int, updatePriority bool) (bool, error) {
 	project, err := r.tmpl.Execute(r.conf.Project, data)
 	if err != nil {
 		return false, errors.Wrap(err, "generate project from template")
@@ -79,6 +79,11 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 	issueSummary, err := r.tmpl.Execute(r.conf.Summary, data)
 	if err != nil {
 		return false, errors.Wrap(err, "generate summary from template")
+	}
+
+	issuePriority, err := r.tmpl.Execute(r.conf.Priority, data)
+	if err != nil {
+		return false, errors.Wrap(err, "generate priority from template")
 	}
 
 	issueDesc, err := r.tmpl.Execute(r.conf.Description, data)
@@ -129,6 +134,16 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 		if updateDescription {
 			if issue.Fields.Description != issueDesc {
 				retry, err := r.updateDescription(issue.Key, issueDesc)
+				if err != nil {
+					return retry, err
+				}
+			}
+		}
+
+		if updatePriority && issue.Fields.Priority != nil {
+			if issue.Fields.Priority.Name != issuePriority {
+				level.Debug(r.logger).Log("msg", "updating priority", "key", issue.Key, "new_priority", issuePriority)
+				retry, err := r.updatePriority(issue.Key, issuePriority)
 				if err != nil {
 					return retry, err
 				}
@@ -316,7 +331,7 @@ func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bo
 	projectList := "'" + strings.Join(projects, "', '") + "'"
 	query := fmt.Sprintf("project in(%s) and labels=%q order by resolutiondate desc", projectList, issueLabel)
 	options := &jira.SearchOptions{
-		Fields:     []string{"summary", "status", "resolution", "resolutiondate", "description", "comment"},
+		Fields:     []string{"summary", "priority", "status", "resolution", "resolutiondate", "description", "comment"},
 		MaxResults: 2,
 	}
 
@@ -475,4 +490,20 @@ func (r *Receiver) doTransition(issueKey string, transitionState string) (bool, 
 	}
 	return false, errors.Errorf("JIRA state %q does not exist or no transition possible for %s", transitionState, issueKey)
 
+}
+
+func (r *Receiver) updatePriority(issueKey string, priority string) (bool, error) {
+	level.Debug(r.logger).Log("msg", "updating issue with new priority", "key", issueKey, "priority", priority)
+	issueUpdate := &jira.Issue{
+		Key: issueKey,
+		Fields: &jira.IssueFields{
+			Priority: &jira.Priority{Name: priority},
+		},
+	}
+	issue, resp, err := r.client.UpdateWithOptions(issueUpdate, nil)
+	if err != nil {
+		return handleJiraErrResponse("Issue.UpdateWithOptions", resp, err, r.logger)
+	}
+	level.Debug(r.logger).Log("msg", "issue priority updated", "key", issue.Key, "id", issue.ID)
+	return false, nil
 }
