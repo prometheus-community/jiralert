@@ -19,7 +19,7 @@ jobs:
           create_repo: true
 
 workflows:
-  release:
+  build-and-push-prod:
     when:
       equal: [master, << pipeline.git.branch >>]
     jobs:
@@ -27,3 +27,10 @@ workflows:
           context:
           - prod
           - prod-us-west-2
+  build-and-push-ops:
+    # when:
+    #   equal: [master, << pipeline.git.branch >>]
+    jobs:
+      - build-and-push:
+          context:
+          - ops
