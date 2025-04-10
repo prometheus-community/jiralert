@@ -14,7 +14,7 @@ jobs:
             - aws-cli/setup
           region: us-west-2
           repo: jiralert
-          tag: $CIRCLE_SHA1
+          tag: $CIRCLE_SHA1, latest
           platform: linux/amd64,linux/arm64
           create_repo: true
 
