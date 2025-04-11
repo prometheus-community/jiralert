@@ -53,7 +53,7 @@ var (
 	updateDescription    = flag.Bool("update-description", true, "When false, jiralert does not update the description of the existing jira issue, even when changes are spotted.")
 	reopenTickets        = flag.Bool("reopen-tickets", true, "When false, jiralert does not reopen tickets.")
 	maxDescriptionLength = flag.Int("max-description-length", defaultMaxDescriptionLength, "Maximum length of Descriptions. Truncate to this size avoid server errors.")
-
+	updatePriority       = flag.Bool("update-priority", true, "When false, jiralert does not update the priority of the existing jira issue, even when changes are spotted.")
 	// Version is the build version, set by make to latest git tag/hash via `-ldflags "-X main.Version=$(VERSION)"`.
 	Version = "<local build>"
 )
@@ -126,7 +126,7 @@ func main() {
 			return
 		}
 
-		if retry, err := notify.NewReceiver(logger, conf, tmpl, client.Issue).Notify(&data, *hashJiraLabel, *updateSummary, *updateDescription, *reopenTickets, *maxDescriptionLength); err != nil {
+		if retry, err := notify.NewReceiver(logger, conf, tmpl, client.Issue).Notify(&data, *hashJiraLabel, *updateSummary, *updateDescription, *reopenTickets, *maxDescriptionLength, *updatePriority); err != nil {
 			var status int
 			if retry {
 				// Instruct Alertmanager to retry.

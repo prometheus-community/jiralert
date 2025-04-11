@@ -75,6 +75,12 @@ func (f *fakeJira) Search(jql string, options *jira.SearchOptions) ([]jira.Issue
 				issue.Fields.Status = &jira.Status{
 					StatusCategory: f.issuesByKey[key].Fields.Status.StatusCategory,
 				}
+			case "priority":
+				if f.issuesByKey[key].Fields.Priority != nil {
+					issue.Fields.Priority = &jira.Priority{
+						Name: f.issuesByKey[key].Fields.Priority.Name,
+					}
+				}
 			}
 		}
 		issues = append(issues, issue)
@@ -128,6 +134,10 @@ func (f *fakeJira) UpdateWithOptions(old *jira.Issue, _ *jira.UpdateQueryOptions
 		issue.Fields.Summary = old.Fields.Summary
 	}
 
+	if old.Fields.Priority != nil {
+		issue.Fields.Priority = old.Fields.Priority
+	}
+
 	if old.Fields.Description != "" {
 		issue.Fields.Description = old.Fields.Description
 	}
@@ -168,6 +178,18 @@ func testReceiverConfig1() *config.ReceiverConfig {
 		ReopenDuration:    &reopen,
 		ReopenState:       "reopened",
 		WontFixResolution: "won't-fix",
+	}
+}
+
+func testReceiverConfigWithPriority() *config.ReceiverConfig {
+	reopen := config.Duration(1 * time.Hour)
+	return &config.ReceiverConfig{
+		Project:           "abc",
+		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }}{{ if gt (len .CommonLabels) (len .GroupLabels) }} ({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
+		ReopenDuration:    &reopen,
+		ReopenState:       "reopened",
+		WontFixResolution: "won't-fix",
+		Priority:          "Low",
 	}
 }
 
@@ -686,6 +708,53 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "update priority of an existing ticket",
+			inputConfig: testReceiverConfigWithPriority(),
+			initJira: func(t *testing.T) *fakeJira {
+				f := newTestFakeJira()
+				_, _, err := f.Create(&jira.Issue{
+					ID:  "1",
+					Key: "1",
+					Fields: &jira.IssueFields{
+						Project: jira.Project{Key: testReceiverConfigWithPriority().Project},
+						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
+						Summary: "[FIRING:1] b d",
+						Priority: &jira.Priority{
+							Name: "Medium",
+						},
+						Unknowns: tcontainer.MarshalMap{},
+					},
+				})
+				require.NoError(t, err)
+				return f
+			},
+			inputAlert: &alertmanager.Data{
+				Alerts: alertmanager.Alerts{
+					{Status: alertmanager.AlertFiring},
+				},
+				Status:      alertmanager.AlertFiring,
+				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
+			},
+			expectedJiraIssues: map[string]*jira.Issue{
+				"1": {
+					ID:  "1",
+					Key: "1",
+					Fields: &jira.IssueFields{
+						Project: jira.Project{Key: testReceiverConfigWithPriority().Project},
+						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
+						Summary: "[FIRING:1] b d",
+						Priority: &jira.Priority{
+							Name: "Low",
+						},
+						Status: &jira.Status{
+							StatusCategory: jira.StatusCategory{Key: "NotDone"},
+						},
+						Unknowns: tcontainer.MarshalMap{},
+					},
+				},
+			},
+		},
 	} {
 		if ok := t.Run(tcase.name, func(t *testing.T) {
 			fakeJira := tcase.initJira(t)
@@ -701,7 +770,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 				return testNowTime
 			}
 
-			_, err := receiver.Notify(tcase.inputAlert, true, true, true, true, 32768)
+			_, err := receiver.Notify(tcase.inputAlert, true, true, true, true, 32768, true)
 			require.NoError(t, err)
 			require.Equal(t, tcase.expectedJiraIssues, fakeJira.issuesByKey)
 		}); !ok {

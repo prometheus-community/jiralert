@@ -11,7 +11,7 @@ defaults:
   # The type of JIRA issue to create. Required.
   issue_type: Bug
   # Issue priority. Optional.
-  priority: Critical
+  priority: '{{ template "jira.priority" . }}'
   # Go template invocation for generating the summary. Required.
   summary: '{{ template "jira.summary" . }}'
   # Go template invocation for generating the description. Optional.
