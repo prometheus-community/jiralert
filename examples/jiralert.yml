@@ -72,4 +72,6 @@ receivers:
 
 
 # File containing template definitions. Required.
-template: jiralert.tmpl
+template:
+- jiralert.tmpl
+- other.tmpl
