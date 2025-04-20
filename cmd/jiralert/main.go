@@ -26,6 +26,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/prometheus-community/jiralert/pkg/alertmanager"
+	"github.com/prometheus-community/jiralert/pkg/clientset"
 	"github.com/prometheus-community/jiralert/pkg/config"
 	"github.com/prometheus-community/jiralert/pkg/notify"
 	"github.com/prometheus-community/jiralert/pkg/template"
@@ -87,6 +88,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	var cs clientset.ClientSet
+
 	http.HandleFunc("/alert", func(w http.ResponseWriter, req *http.Request) {
 		level.Debug(logger).Log("msg", "handling /alert webhook request")
 		defer func() { _ = req.Body.Close() }()
@@ -105,22 +108,7 @@ func main() {
 		}
 		level.Debug(logger).Log("msg", "  matched receiver", "receiver", conf.Name)
 
-		// TODO: Consider reusing notifiers or just jira clients to reuse connections.
-		var client *jira.Client
-		var err error
-		if conf.User != "" && conf.Password != "" {
-			tp := jira.BasicAuthTransport{
-				Username: conf.User,
-				Password: string(conf.Password),
-			}
-			client, err = jira.NewClient(tp.Client(), conf.APIURL)
-		} else if conf.PersonalAccessToken != "" {
-			tp := jira.PATAuthTransport{
-				Token: string(conf.PersonalAccessToken),
-			}
-			client, err = jira.NewClient(tp.Client(), conf.APIURL)
-		}
-
+		client, err := cs.GetOrCreateJira(conf)
 		if err != nil {
 			errorHandler(w, http.StatusInternalServerError, err, conf.Name, &data, logger)
 			return
