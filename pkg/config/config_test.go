@@ -58,6 +58,8 @@ receivers:
     # Copy all Prometheus labels into separate JIRA labels. Optional (default: false).
     add_group_labels: false
     update_in_comment: false
+    field_labels: Labels
+    field_labels_key: labels
     static_labels: ["somelabel"]
 
   - name: 'jira-xy'
@@ -76,6 +78,8 @@ receivers:
       customfield_10002: { "value": "red" }
       # MultiSelect
       customfield_10003: [{"value": "red" }, {"value": "blue" }, {"value": "green" }]
+    field_labels: Labels
+    field_labels_key: labels
 
 # File containing template definitions. Required.
 template: jiralert.tmpl
@@ -127,6 +131,8 @@ type receiverTestConfig struct {
 	Priority          string   `yaml:"priority,omitempty"`
 	Description       string   `yaml:"description,omitempty"`
 	WontFixResolution string   `yaml:"wont_fix_resolution,omitempty"`
+	FieldLabels       string   `yaml:"field_labels" json:"field_labels"`
+	FieldLabelsKey    string   `yaml:"field_labels_key" json:"field_labels_key"`
 	AddGroupLabels    *bool    `yaml:"add_group_labels,omitempty"`
 	UpdateInComment   *bool    `yaml:"update_in_comment,omitempty"`
 	StaticLabels      []string `yaml:"static_labels" json:"static_labels"`
@@ -334,6 +340,8 @@ func TestReceiverOverrides(t *testing.T) {
 		{"Priority", "Critical", "Critical"},
 		{"Description", "A nice description", "A nice description"},
 		{"WontFixResolution", "Won't Fix", "Won't Fix"},
+		{"FieldLabels", "Labels", "Labels"},
+		{"FieldLabelsKey", "labels", "labels"},
 		{"AddGroupLabels", &addGroupLabelsFalseVal, &addGroupLabelsFalseVal},
 		{"AddGroupLabels", &addGroupLabelsTrueVal, &addGroupLabelsTrueVal},
 		{"UpdateInComment", &updateInCommentFalseVal, &updateInCommentFalseVal},
@@ -341,7 +349,7 @@ func TestReceiverOverrides(t *testing.T) {
 		{"AutoResolve", &AutoResolve{State: "Done"}, &autoResolve},
 		{"StaticLabels", []string{"somelabel"}, []string{"somelabel"}},
 	} {
-		optionalFields := []string{"Priority", "Description", "WontFixResolution", "AddGroupLabels", "UpdateInComment", "AutoResolve", "StaticLabels"}
+		optionalFields := []string{"Priority", "Description", "WontFixResolution", "FieldLabels", "FieldLabelsKey", "AddGroupLabels", "UpdateInComment", "AutoResolve", "StaticLabels"}
 		defaultsConfig := newReceiverTestConfig(mandatoryReceiverFields(), optionalFields)
 		receiverConfig := newReceiverTestConfig([]string{"Name"}, optionalFields)
 

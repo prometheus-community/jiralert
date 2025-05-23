@@ -81,6 +81,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	if config.GetJiraFieldKey() != nil {
+		level.Error(logger).Log("msg", "error discovering jira key for field alert params", "err", err)
+	}
+
 	tmpl, err := template.LoadTemplate(config.Template, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "error loading templates", "path", config.Template, "err", err)
