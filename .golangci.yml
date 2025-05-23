@@ -1,9 +1,7 @@
+version: "2"
+
 run:
   deadline: 5m
-
-linters:
-  enable:
-  - golint
 
 issues:
   exclude-rules:
@@ -13,4 +11,7 @@ issues:
 
 linters-settings:
   errcheck:
-    exclude: .errcheck_excludes.txt
+    exclude-functions:
+    - (github.com/go-kit/log.Logger).Log
+    - fmt.Fprintln
+    - fmt.Fprint
