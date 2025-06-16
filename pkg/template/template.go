@@ -41,6 +41,7 @@ var funcs = template.FuncMap{
 		return strings.Join(s, sep)
 	},
 	"match": regexp.MatchString,
+	"split": strings.Split,
 	"reReplaceAll": func(pattern, repl, text string) string {
 		re := regexp.MustCompile(pattern)
 		return re.ReplaceAllString(text, repl)
@@ -54,9 +55,9 @@ var funcs = template.FuncMap{
 }
 
 // LoadTemplate reads and parses all templates defined in the given file and constructs a jiralert.Template.
-func LoadTemplate(path string, logger log.Logger) (*Template, error) {
+func LoadTemplate(path []string, logger log.Logger) (*Template, error) {
 	level.Debug(logger).Log("msg", "loading templates", "path", path)
-	tmpl, err := template.New("").Option("missingkey=zero").Funcs(funcs).ParseFiles(path)
+	tmpl, err := template.New("").Option("missingkey=zero").Funcs(funcs).ParseFiles(path...)
 	if err != nil {
 		return nil, err
 	}
