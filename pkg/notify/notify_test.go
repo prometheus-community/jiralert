@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/andygrunwald/go-jira"
+	jira "github.com/andygrunwald/go-jira"
 
 	"github.com/trivago/tgo/tcontainer"
 
@@ -260,9 +260,9 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 			initJira:    func(t *testing.T) *fakeJira { return newTestFakeJira() },
 			inputAlert: &alertmanager.Data{
 				Alerts: alertmanager.Alerts{
-					{Status: alertmanager.AlertFiring},
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring},
+					alertmanager.Alert{Status: alertmanager.AlertFiring},
+					alertmanager.Alert{Status: "not firing"},
+					alertmanager.Alert{Status: alertmanager.AlertFiring},
 				},
 				Status:      alertmanager.AlertFiring,
 				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
@@ -303,8 +303,8 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 			},
 			inputAlert: &alertmanager.Data{
 				Alerts: alertmanager.Alerts{
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring}, // Only one firing now.
+					alertmanager.Alert{Status: "not firing"},
+					alertmanager.Alert{Status: alertmanager.AlertFiring}, // Only one firing now.
 				},
 				Status:      alertmanager.AlertFiring,
 				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
@@ -346,8 +346,8 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 			},
 			inputAlert: &alertmanager.Data{
 				Alerts: alertmanager.Alerts{
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring}, // Only one firing now.
+					alertmanager.Alert{Status: "not firing"},
+					alertmanager.Alert{Status: alertmanager.AlertFiring}, // Only one firing now.
 				},
 				Status:      alertmanager.AlertFiring,
 				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
@@ -398,8 +398,8 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 			},
 			inputAlert: &alertmanager.Data{
 				Alerts: alertmanager.Alerts{
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring}, // Only one firing now.
+					alertmanager.Alert{Status: "not firing"},
+					alertmanager.Alert{Status: alertmanager.AlertFiring}, // Only one firing now.
 				},
 				Status:      alertmanager.AlertFiring,
 				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
@@ -453,8 +453,8 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 			},
 			inputAlert: &alertmanager.Data{
 				Alerts: alertmanager.Alerts{
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring}, // Only one firing now.
+					alertmanager.Alert{Status: "not firing"},
+					alertmanager.Alert{Status: alertmanager.AlertFiring}, // Only one firing now.
 				},
 				Status:      alertmanager.AlertFiring,
 				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
@@ -508,8 +508,8 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 			},
 			inputAlert: &alertmanager.Data{
 				Alerts: alertmanager.Alerts{
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring}, // Only one firing now.
+					alertmanager.Alert{Status: "not firing"},
+					alertmanager.Alert{Status: alertmanager.AlertFiring}, // Only one firing now.
 				},
 				Status:      alertmanager.AlertFiring,
 				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
@@ -554,7 +554,7 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 			inputConfig: testReceiverConfigAutoResolve(),
 			inputAlert: &alertmanager.Data{
 				Alerts: alertmanager.Alerts{
-					{Status: "resolved"},
+					alertmanager.Alert{Status: "resolved"},
 				},
 				Status:      alertmanager.AlertResolved,
 				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
@@ -598,9 +598,9 @@ func TestNotify_JIRAInteraction(t *testing.T) {
 			initJira:    func(t *testing.T) *fakeJira { return newTestFakeJira() },
 			inputAlert: &alertmanager.Data{
 				Alerts: alertmanager.Alerts{
-					{Status: alertmanager.AlertFiring},
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring},
+					alertmanager.Alert{Status: alertmanager.AlertFiring},
+					alertmanager.Alert{Status: "not firing"},
+					alertmanager.Alert{Status: alertmanager.AlertFiring},
 				},
 				Status:      alertmanager.AlertFiring,
 				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
