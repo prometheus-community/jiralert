@@ -16,8 +16,11 @@ package notify
 import (
 	"bytes"
 	"crypto/sha512"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"reflect"
 	"strings"
 	"time"
@@ -42,6 +45,49 @@ type jiraIssueService interface {
 	UpdateWithOptions(issue *jira.Issue, opts *jira.UpdateQueryOptions) (*jira.Issue, *jira.Response, error)
 	AddComment(issueID string, comment *jira.Comment) (*jira.Comment, *jira.Response, error)
 	DoTransition(ticketID, transitionID string) (*jira.Response, error)
+}
+
+// Types for direct API v3 calls
+type issueSearchRequest struct {
+	Expand     string   `json:"expand"`
+	Fields     []string `json:"fields"`
+	JQL        string   `json:"jql"`
+	MaxResults int      `json:"maxResults"`
+}
+
+type issueSearchResponse struct {
+	Total  int                     `json:"total"`
+	Issues []jiraIssueSearchResult `json:"issues"`
+}
+
+type jiraIssueSearchResult struct {
+	Key    string                `json:"key"`
+	Fields jiraIssueFieldsResult `json:"fields"`
+}
+
+type jiraIssueFieldsResult struct {
+	Status jiraStatusResult `json:"status"`
+}
+
+type jiraStatusResult struct {
+	Name           string                   `json:"name"`
+	StatusCategory jiraStatusCategoryResult `json:"statusCategory"`
+}
+
+type jiraStatusCategoryResult struct {
+	Key string `json:"key"`
+}
+
+type jiraResolutionResult struct {
+	Name string `json:"name"`
+}
+
+type jiraCommentsResult struct {
+	Comments []jiraCommentResult `json:"comments"`
+}
+
+type jiraCommentResult struct {
+	Body string `json:"body"`
 }
 
 // Receiver wraps a specific Alertmanager receiver with its configuration and templates, creating/updating/reopening Jira issues based on Alertmanager notifications.
@@ -320,30 +366,131 @@ func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bo
 	// Search multiple projects in case issue was moved and further alert firings are desired in existing JIRA.
 	projectList := "'" + strings.Join(projects, "', '") + "'"
 	query := fmt.Sprintf("project in(%s) and labels=%q order by resolutiondate desc", projectList, issueLabel)
-	options := &jira.SearchOptions{
-		Fields:     []string{"summary", "status", "resolution", "resolutiondate", "description", "comment"},
+
+	level.Debug(r.logger).Log("msg", "search using v3 API", "query", query)
+
+	// Use v3 API directly - v2 is completely removed
+	return r.searchV3API(query)
+}
+
+// searchV3API implements search using JIRA API v3 with direct HTTP calls
+func (r *Receiver) searchV3API(query string) (*jira.Issue, bool, error) {
+	// Create search request
+	searchRequest := issueSearchRequest{
+		Expand:     "",
+		Fields:     []string{"status"},
+		JQL:        query,
 		MaxResults: 2,
 	}
 
-	level.Debug(r.logger).Log("msg", "search", "query", query, "options", fmt.Sprintf("%+v", options))
-	issues, resp, err := r.client.Search(query, options)
+	// Get HTTP client and credentials from the receiver config
+	httpClient, baseURL, err := r.getHTTPClientAndURL()
 	if err != nil {
-		retry, err := handleJiraErrResponse("Issue.Search", resp, err, r.logger)
-		return nil, retry, err
+		return nil, false, fmt.Errorf("failed to get HTTP client: %w", err)
 	}
 
-	if len(issues) == 0 {
-		level.Debug(r.logger).Log("msg", "no results", "query", query)
+	// Build the v3 API URL
+	apiURL, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, false, fmt.Errorf("invalid base URL: %w", err)
+	}
+	apiURL.Path = strings.TrimSuffix(apiURL.Path, "/") + "/rest/api/3/search/jql"
+
+	// Marshal request body
+	requestBody, err := json.Marshal(searchRequest)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to marshal search request: %w", err)
+	}
+
+	fmt.Println("requestBody")
+	fmt.Println(string(requestBody))
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", apiURL.String(), bytes.NewBuffer(requestBody))
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	// Add authentication
+	if r.conf.User != "" && r.conf.Password != "" {
+		req.SetBasicAuth(r.conf.User, string(r.conf.Password))
+	} else if r.conf.PersonalAccessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+string(r.conf.PersonalAccessToken))
+	}
+
+	level.Debug(r.logger).Log("msg", "making v3 API request", "url", apiURL.String())
+
+	// Make the request
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, true, fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Check for HTTP errors
+	if resp.StatusCode != http.StatusOK {
+		retry := resp.StatusCode == 500 || resp.StatusCode == 503 || resp.StatusCode == 429
+		return nil, retry, fmt.Errorf("JIRA API returned status %d: %s payload: %s", resp.StatusCode, string(responseBody), requestBody)
+	}
+
+	// Parse response
+	var searchResponse issueSearchResponse
+	if err := json.Unmarshal(responseBody, &searchResponse); err != nil {
+		return nil, false, fmt.Errorf("failed to parse search response: %w", err)
+	}
+
+	if searchResponse.Total == 0 {
+		level.Debug(r.logger).Log("msg", "no results found", "query", query)
 		return nil, false, nil
 	}
 
-	issue := issues[0]
-	if len(issues) > 1 {
-		level.Warn(r.logger).Log("msg", "more than one issue matched, picking most recently resolved", "query", query, "issues", issues, "picked", issue)
+	// Convert the first result back to jira.Issue format
+	searchResult := searchResponse.Issues[0]
+	issue := r.convertToJiraIssue(searchResult)
+
+	if searchResponse.Total > 1 {
+		level.Warn(r.logger).Log("msg", "more than one issue matched, picking most recently resolved", "query", query, "picked", issue.Key)
 	}
 
-	level.Debug(r.logger).Log("msg", "found", "issue", issue, "query", query)
-	return &issue, false, nil
+	level.Debug(r.logger).Log("msg", "found issue", "key", issue.Key, "query", query)
+	return issue, false, nil
+}
+
+// getHTTPClientAndURL extracts HTTP client and base URL for direct API calls
+func (r *Receiver) getHTTPClientAndURL() (*http.Client, string, error) {
+	// Create a basic HTTP client
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	return client, r.conf.APIURL, nil
+}
+
+// convertToJiraIssue converts our search result format back to jira.Issue
+func (r *Receiver) convertToJiraIssue(searchResult jiraIssueSearchResult) *jira.Issue {
+	issue := &jira.Issue{
+		Key: searchResult.Key,
+		Fields: &jira.IssueFields{
+			Status: &jira.Status{
+				Name: searchResult.Fields.Status.Name,
+				StatusCategory: jira.StatusCategory{
+					Key: searchResult.Fields.Status.StatusCategory.Key,
+				},
+			},
+		},
+	}
+
+	return issue
 }
 
 func (r *Receiver) findIssueToReuse(project string, issueGroupLabel string) (*jira.Issue, bool, error) {
