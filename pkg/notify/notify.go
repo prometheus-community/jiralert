@@ -56,8 +56,9 @@ type issueSearchRequest struct {
 }
 
 type issueSearchResponse struct {
-	Total  int                     `json:"total"`
-	Issues []jiraIssueSearchResult `json:"issues"`
+	IsLast        bool                    `json:"isLast"`
+	NextPageToken string                  `json:"nextPageToken"`
+	Issues        []jiraIssueSearchResult `json:"issues"`
 }
 
 type jiraIssueSearchResult struct {
@@ -367,10 +368,45 @@ func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bo
 	projectList := "'" + strings.Join(projects, "', '") + "'"
 	query := fmt.Sprintf("project in(%s) and labels=%q order by resolutiondate desc", projectList, issueLabel)
 
+	// Check if we have a valid APIURL - if not, fall back to JIRA client (for tests)
+	if r.conf.APIURL == "" {
+		level.Debug(r.logger).Log("msg", "no APIURL configured, using JIRA client for search", "query", query)
+		return r.searchWithJiraClient(query)
+	}
+
 	level.Debug(r.logger).Log("msg", "search using v3 API", "query", query)
 
 	// Use v3 API directly - v2 is completely removed
 	return r.searchV3API(query)
+}
+
+// searchWithJiraClient uses the original JIRA client for backward compatibility (mainly for tests)
+func (r *Receiver) searchWithJiraClient(query string) (*jira.Issue, bool, error) {
+	if r.client == nil {
+		return nil, false, fmt.Errorf("no JIRA client available and no APIURL configured")
+	}
+
+	searchOptions := &jira.SearchOptions{
+		Fields:     []string{"summary", "status", "resolution", "resolutiondate", "description", "comment"},
+		MaxResults: 2,
+	}
+
+	issues, _, err := r.client.Search(query, searchOptions)
+	if err != nil {
+		return nil, true, fmt.Errorf("search failed: %w", err)
+	}
+
+	if len(issues) == 0 {
+		level.Debug(r.logger).Log("msg", "no results found", "query", query)
+		return nil, false, nil
+	}
+
+	if len(issues) > 1 {
+		level.Warn(r.logger).Log("msg", "more than one issue matched, picking most recently resolved", "query", query, "picked", issues[0].Key)
+	}
+
+	level.Debug(r.logger).Log("msg", "found issue", "key", issues[0].Key, "query", query)
+	return &issues[0], false, nil
 }
 
 // searchV3API implements search using JIRA API v3 with direct HTTP calls
@@ -378,7 +414,7 @@ func (r *Receiver) searchV3API(query string) (*jira.Issue, bool, error) {
 	// Create search request
 	searchRequest := issueSearchRequest{
 		Expand:     "",
-		Fields:     []string{"status"},
+		Fields:     []string{"summary", "status", "resolution", "resolutiondate", "description", "comment"},
 		JQL:        query,
 		MaxResults: 2,
 	}
@@ -449,7 +485,7 @@ func (r *Receiver) searchV3API(query string) (*jira.Issue, bool, error) {
 		return nil, false, fmt.Errorf("failed to parse search response: %w", err)
 	}
 
-	if searchResponse.Total == 0 {
+	if len(searchResponse.Issues) == 0 {
 		level.Debug(r.logger).Log("msg", "no results found", "query", query)
 		return nil, false, nil
 	}
@@ -458,7 +494,7 @@ func (r *Receiver) searchV3API(query string) (*jira.Issue, bool, error) {
 	searchResult := searchResponse.Issues[0]
 	issue := r.convertToJiraIssue(searchResult)
 
-	if searchResponse.Total > 1 {
+	if len(searchResponse.Issues) > 1 {
 		level.Warn(r.logger).Log("msg", "more than one issue matched, picking most recently resolved", "query", query, "picked", issue.Key)
 	}
 
