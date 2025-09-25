@@ -67,7 +67,8 @@ type jiraIssueSearchResult struct {
 }
 
 type jiraIssueFieldsResult struct {
-	Status jiraStatusResult `json:"status"`
+	Status         jiraStatusResult `json:"status"`
+	Resolutiondate jira.Time        `json:"resolutiondate"`
 }
 
 type jiraStatusResult struct {
@@ -523,6 +524,7 @@ func (r *Receiver) convertToJiraIssue(searchResult jiraIssueSearchResult) *jira.
 					Key: searchResult.Fields.Status.StatusCategory.Key,
 				},
 			},
+			Resolutiondate: searchResult.Fields.Resolutiondate,
 		},
 	}
 
