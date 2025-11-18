@@ -380,11 +380,12 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 
 	for _, name := range mandatory {
 		var value reflect.Value
-		if name == "APIURL" {
+		switch name {
+		case "APIURL":
 			value = reflect.ValueOf("https://jiralert.atlassian.net")
-		} else if name == "ReopenDuration" {
+		case "ReopenDuration":
 			value = reflect.ValueOf("30d")
-		} else {
+		default:
 			value = reflect.ValueOf(name)
 		}
 
@@ -393,15 +394,16 @@ func newReceiverTestConfig(mandatory []string, optional []string) *receiverTestC
 
 	for _, name := range optional {
 		var value reflect.Value
-		if name == "AddGroupLabels" {
+		switch name {
+		case "AddGroupLabels":
 			value = reflect.ValueOf(&addGroupLabelsDefaultVal)
-		} else if name == "UpdateInComment" {
+		case "UpdateInComment":
 			value = reflect.ValueOf(&updateInCommentDefaultVal)
-		} else if name == "AutoResolve" {
+		case "AutoResolve":
 			value = reflect.ValueOf(&AutoResolve{State: "Done"})
-		} else if name == "StaticLabels" {
+		case "StaticLabels":
 			value = reflect.ValueOf([]string{})
-		} else {
+		default:
 			value = reflect.ValueOf(name)
 		}
 
