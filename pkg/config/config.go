@@ -92,7 +92,7 @@ func substituteEnvVars(b []byte, logger log.Logger) (r []byte, err error) {
 
 		v, ok := os.LookupEnv(string(n))
 		if !ok {
-			err = fmt.Errorf("Missing env variable: %q", n)
+			err = fmt.Errorf("missing env variable: %q", n)
 			return nil
 		}
 		return []byte(v)

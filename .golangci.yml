@@ -1,17 +1,22 @@
 version: "2"
-
-run:
-  deadline: 5m
-
-issues:
-  exclude-rules:
-  - path: _test.go
-    linters:
-    - errcheck
-
-linters-settings:
-  errcheck:
-    exclude-functions:
-    - (github.com/go-kit/log.Logger).Log
-    - fmt.Fprintln
-    - fmt.Fprint
+linters:
+  settings:
+    errcheck:
+      exclude-functions:
+        - (github.com/go-kit/log.Logger).Log
+        - fmt.Fprintln
+        - fmt.Fprint
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - errcheck
+        path: _test.go
+formatters:
+  exclusions:
+    generated: lax

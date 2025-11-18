@@ -319,11 +319,11 @@ func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string 
 	buf := bytes.NewBufferString("ALERT{")
 	for _, p := range groupLabels.SortedPairs() {
 		buf.WriteString(p.Name)
-		buf.WriteString(fmt.Sprintf("=%q,", p.Value))
+		fmt.Fprintf(buf, "=%q,", p.Value)
 	}
 	buf.Truncate(buf.Len() - 1)
 	buf.WriteString("}")
-	return strings.Replace(buf.String(), " ", "", -1)
+	return strings.ReplaceAll(buf.String(), " ", "")
 }
 
 func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bool, error) {
