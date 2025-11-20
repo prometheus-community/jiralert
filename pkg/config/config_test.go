@@ -78,7 +78,7 @@ receivers:
       customfield_10003: [{"value": "red" }, {"value": "blue" }, {"value": "green" }]
 
 # File containing template definitions. Required.
-template: jiralert.tmpl
+template: ["jiralert.tmpl"]
 `
 
 // Generic test that loads the testConf with no errors.
@@ -142,7 +142,7 @@ type receiverTestConfig struct {
 type testConfig struct {
 	Defaults  *receiverTestConfig   `yaml:"defaults,omitempty"`
 	Receivers []*receiverTestConfig `yaml:"receivers,omitempty"`
-	Template  string                `yaml:"template,omitempty"`
+	Template  []string              `yaml:"template,omitempty"`
 }
 
 // Required Config keys tests.
@@ -153,7 +153,7 @@ func TestMissingConfigKeys(t *testing.T) {
 	var config testConfig
 
 	// No receivers.
-	config = testConfig{Defaults: defaultsConfig, Receivers: []*receiverTestConfig{}, Template: "jiralert.tmpl"}
+	config = testConfig{Defaults: defaultsConfig, Receivers: []*receiverTestConfig{}, Template: []string{"jiralert.tmpl"}}
 	configErrorTestRunner(t, config, "no receivers defined")
 
 	// No template.
@@ -186,7 +186,7 @@ func TestRequiredReceiverConfigKeys(t *testing.T) {
 		config := testConfig{
 			Defaults:  defaultsConfig,
 			Receivers: []*receiverTestConfig{receiverConfig},
-			Template:  "jiratemplate.tmpl",
+			Template:  []string{"jiralert.tmpl"},
 		}
 		configErrorTestRunner(t, config, test.errorMessage)
 	}
@@ -235,7 +235,7 @@ func TestAuthKeysErrors(t *testing.T) {
 		config := testConfig{
 			Defaults:  defaultsConfig,
 			Receivers: []*receiverTestConfig{minimalReceiverTestConfig},
-			Template:  "jiralert.tmpl",
+			Template:  []string{"jiralert.tmpl"},
 		}
 
 		configErrorTestRunner(t, config, test.errorMessage)
@@ -292,7 +292,7 @@ func TestAuthKeysOverrides(t *testing.T) {
 		config := testConfig{
 			Defaults:  defaultsConfig,
 			Receivers: []*receiverTestConfig{receiverConfig},
-			Template:  "jiralert.tmpl",
+			Template:  []string{"jiralert.tmpl"},
 		}
 
 		yamlConfig, err := yaml.Marshal(&config)
@@ -351,7 +351,7 @@ func TestReceiverOverrides(t *testing.T) {
 		config := testConfig{
 			Defaults:  defaultsConfig,
 			Receivers: []*receiverTestConfig{receiverConfig},
-			Template:  "jiralert.tmpl",
+			Template:  []string{"jiralert.tmpl"},
 		}
 
 		yamlConfig, err := yaml.Marshal(&config)
@@ -455,7 +455,7 @@ func TestAutoResolveConfigReceiver(t *testing.T) {
 	config := testConfig{
 		Defaults:  defaultsConfig,
 		Receivers: []*receiverTestConfig{minimalReceiverTestConfig},
-		Template:  "jiralert.tmpl",
+		Template:  []string{"jiralert.tmpl"},
 	}
 
 	configErrorTestRunner(t, config, "bad config in receiver \"test\", 'auto_resolve' was defined with empty 'state' field")
@@ -473,7 +473,7 @@ func TestAutoResolveConfigDefault(t *testing.T) {
 	config := testConfig{
 		Defaults:  defaultsConfig,
 		Receivers: []*receiverTestConfig{minimalReceiverTestConfig},
-		Template:  "jiralert.tmpl",
+		Template:  []string{"jiralert.tmpl"},
 	}
 
 	configErrorTestRunner(t, config, "bad config in defaults section: state cannot be empty")
@@ -503,7 +503,7 @@ func TestStaticLabelsConfigMerge(t *testing.T) {
 		config := testConfig{
 			Defaults:  defaultsConfig,
 			Receivers: []*receiverTestConfig{receiverConfig},
-			Template:  "jiralert.tmpl",
+			Template:  []string{"jiralert.tmpl"},
 		}
 
 		yamlConfig, err := yaml.Marshal(&config)
