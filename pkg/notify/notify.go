@@ -35,13 +35,14 @@ import (
 // TODO(bwplotka): Consider renaming this package to ticketer.
 
 type jiraIssueService interface {
-	Search(jql string, options *jira.SearchOptions) ([]jira.Issue, *jira.Response, error)
-	GetTransitions(id string) ([]jira.Transition, *jira.Response, error)
+	Create(*jira.Issue) (*jira.Issue, *jira.Response, error)
+	AddComment(string, *jira.Comment) (*jira.Comment, *jira.Response, error)
+	UpdateWithOptions(*jira.Issue, *jira.UpdateQueryOptions) (*jira.Issue, *jira.Response, error)
+	GetTransitions(string) ([]jira.Transition, *jira.Response, error)
+	DoTransition(string, string) (*jira.Response, error)
 
-	Create(issue *jira.Issue) (*jira.Issue, *jira.Response, error)
-	UpdateWithOptions(issue *jira.Issue, opts *jira.UpdateQueryOptions) (*jira.Issue, *jira.Response, error)
-	AddComment(issueID string, comment *jira.Comment) (*jira.Comment, *jira.Response, error)
-	DoTransition(ticketID, transitionID string) (*jira.Response, error)
+	// Replace or add the new search method here
+	SearchV2JQL(string, *jira.SearchOptionsV2) ([]jira.Issue, *jira.Response, error)
 }
 
 // Receiver wraps a specific Alertmanager receiver with its configuration and templates, creating/updating/reopening Jira issues based on Alertmanager notifications.
@@ -327,18 +328,24 @@ func toGroupTicketLabel(groupLabels alertmanager.KV, hashJiraLabel bool) string 
 }
 
 func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bool, error) {
-	// Search multiple projects in case issue was moved and further alert firings are desired in existing JIRA.
+	// Search multiple projects in case issue was moved
 	projectList := "'" + strings.Join(projects, "', '") + "'"
 	query := fmt.Sprintf("project in(%s) and labels=%q order by resolutiondate desc", projectList, issueLabel)
-	options := &jira.SearchOptions{
+
+	// Use the new V2 options
+	options := &jira.SearchOptionsV2{
 		Fields:     []string{"summary", "priority", "status", "resolution", "resolutiondate", "description", "comment"},
 		MaxResults: 2,
 	}
 
-	level.Debug(r.logger).Log("msg", "search", "query", query, "options", fmt.Sprintf("%+v", options))
-	issues, resp, err := r.client.Search(query, options)
+	level.Debug(r.logger).Log("msg", "search", "query", query)
+
+	// Call the new SearchV2JQL method
+	issues, resp, err := r.client.SearchV2JQL(query, options)
+
 	if err != nil {
-		retry, err := handleJiraErrResponse("Issue.Search", resp, err, r.logger)
+		// We now pass the resp we captured above
+		retry, err := handleJiraErrResponse("Issue.SearchV2JQL", resp, err, r.logger)
 		return nil, retry, err
 	}
 
@@ -349,10 +356,9 @@ func (r *Receiver) search(projects []string, issueLabel string) (*jira.Issue, bo
 
 	issue := issues[0]
 	if len(issues) > 1 {
-		level.Warn(r.logger).Log("msg", "more than one issue matched, picking most recently resolved", "query", query, "issues", issues, "picked", issue)
+		level.Warn(r.logger).Log("msg", "more than one issue matched, picking most recent", "query", query)
 	}
 
-	level.Debug(r.logger).Log("msg", "found", "issue", issue, "query", query)
 	return &issue, false, nil
 }
 

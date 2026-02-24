@@ -1,3 +1,5 @@
+# TODO: Move to Onefootball ECR
+
 name: build-docker
 
 on:
