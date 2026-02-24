@@ -1,0 +1,26 @@
+# This is an example of how to send a test alert to Jiralert using curl.
+
+curl -X POST http://localhost:<port(usually 9097/9098/9099)>/alert \
+-H "Content-Type: application/json" \
+-d '{
+  "receiver": "mimir-at-onefootball",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "TestAlert",
+        "severity": "critical",
+        "env": "test"
+      },
+      "annotations": {
+        "summary": "TEST: This is a test alert",
+        "description": "Triggered manually via curl"
+      },
+      "startsAt": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"
+    }
+  ],
+  "groupLabels": {
+    "alertname": "TestAlert"
+  }
+}'

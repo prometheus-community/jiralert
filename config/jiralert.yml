@@ -1,0 +1,25 @@
+# TODO: How can I pass these things as parameters instead of hardcoding them here? Maybe we can have a separate config file for each receiver?
+
+defaults:
+  api_url: https://onefootball.atlassian.net
+  user: evan.sthapit@onefootball.com
+  password: $(JIRA_TOKEN)
+  issue_type: Story
+  priority: Major
+  summary: '{{ template "jira.summary" . }}'
+  description: '{{ template "jira.description" . }}'
+  reopen_state: "In Progress"
+  reopen_duration: 0h
+  update_in_comment: true
+  wont_fix_resolution: "Won't Fix"
+
+receivers:
+  - name: 'mimir-at-onefootball'
+    project: CORE
+    auto_resolve:
+      state: 'Done'
+    # wont_fix_resolution: 'Done'
+    reopen_duration: 0h
+
+# REQUIRED: path to template file (starts from /config)
+template: jiralert.tmpl
