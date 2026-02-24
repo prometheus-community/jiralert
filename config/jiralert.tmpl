@@ -1,0 +1,10 @@
+{{ define "jira.summary" }}[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}{{ end }}
+
+{{ define "jira.description" }}
+h2. Alert Details
+* *Alert:* {{ .GroupLabels.alertname }}
+* *Timestamp:* {{ (index .Alerts 0).StartsAt.Format "2006-01-02 15:04:05" }}
+* *Dashboard:* {{ (index .Alerts 0).Labels.dashboard }}
+* *Runbook:* {{ (index .Alerts 0).Labels.runbook }}
+* *Annotations:* {{ (index .Alerts 0).Annotations.summary }}
+{{ end }}

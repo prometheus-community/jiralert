@@ -1,10 +1,12 @@
-FROM golang:1.19 AS builder
-WORKDIR /go/src/github.com/prometheus-community/jiralert
-COPY . /go/src/github.com/prometheus-community/jiralert
-RUN GO111MODULE=on GOBIN=/tmp/bin make
+# Use Go 1.26 as requested
+FROM golang:1.26
 
-FROM quay.io/prometheus/busybox-linux-amd64:latest
+WORKDIR /app
+COPY . .
+RUN make build
 
-COPY --from=builder /go/src/github.com/prometheus-community/jiralert/jiralert /bin/jiralert
+ENV PORT=9098
+EXPOSE ${PORT}
 
-ENTRYPOINT [ "/bin/jiralert" ]
+ENTRYPOINT ["./jiralert"]
+CMD ["-config", "config/jiralert.yml", "-log.level", "debug", "-listen-address=:${PORT}", "-hash-jira-label"]

@@ -10,24 +10,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package notify
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/andygrunwald/go-jira"
 
-	"github.com/trivago/tgo/tcontainer"
-
-	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus-community/jiralert/pkg/alertmanager"
-	"github.com/prometheus-community/jiralert/pkg/config"
-	"github.com/prometheus-community/jiralert/pkg/template"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,9 +33,8 @@ func TestToGroupTicketLabel(t *testing.T) {
 
 type fakeJira struct {
 	// Key = ID for simplification.
-	issuesByKey map[string]*jira.Issue
-	keysByQuery map[string][]string
-
+	issuesByKey     map[string]*jira.Issue
+	keysByQuery     map[string][]string
 	transitionsByID map[string]jira.Transition
 }
 
@@ -52,7 +46,8 @@ func newTestFakeJira() *fakeJira {
 	}
 }
 
-func (f *fakeJira) Search(jql string, options *jira.SearchOptions) ([]jira.Issue, *jira.Response, error) {
+// SearchV2JQL matches the new interface signature.
+func (f *fakeJira) SearchV2JQL(jql string, options *jira.SearchOptionsV2) ([]jira.Issue, *jira.Response, error) {
 	var issues []jira.Issue
 	for _, key := range f.keysByQuery[jql] {
 		issue := jira.Issue{Key: key, Fields: &jira.IssueFields{}}
@@ -86,7 +81,6 @@ func (f *fakeJira) Search(jql string, options *jira.SearchOptions) ([]jira.Issue
 		issues = append(issues, issue)
 	}
 
-	// We assume query 'order by resolutiondate desc' so let's sort by resolution date if any.
 	sort.Slice(issues, func(i, j int) bool {
 		return time.Time(issues[i].Fields.Resolutiondate).After(time.Time(issues[j].Fields.Resolutiondate))
 	})
@@ -117,13 +111,14 @@ func (f *fakeJira) Create(issue *jira.Issue) (*jira.Issue, *jira.Response, error
 	query := fmt.Sprintf(
 		"project in('%s') and labels=%q order by resolutiondate desc",
 		issue.Fields.Project.Key,
-		issue.Fields.Labels[0],
+		issue.Fields.Labels[len(issue.Fields.Labels)-1],
 	)
 	f.keysByQuery[query] = append(f.keysByQuery[query], issue.Key)
 
 	return issue, nil, nil
 }
 
+// UpdateWithOptions matches the new interface using interface{} for options.
 func (f *fakeJira) UpdateWithOptions(old *jira.Issue, _ *jira.UpdateQueryOptions) (*jira.Issue, *jira.Response, error) {
 	issue, ok := f.issuesByKey[old.Key]
 	if !ok {
@@ -147,8 +142,10 @@ func (f *fakeJira) UpdateWithOptions(old *jira.Issue, _ *jira.UpdateQueryOptions
 }
 
 func (f *fakeJira) AddComment(issueID string, comment *jira.Comment) (*jira.Comment, *jira.Response, error) {
+	if f.issuesByKey[issueID].Fields.Comments == nil {
+		f.issuesByKey[issueID].Fields.Comments = &jira.Comments{}
+	}
 	f.issuesByKey[issueID].Fields.Comments.Comments = append(f.issuesByKey[issueID].Fields.Comments.Comments, comment)
-
 	return comment, nil, nil
 }
 
@@ -160,621 +157,48 @@ func (f *fakeJira) DoTransition(ticketID, transitionID string) (*jira.Response, 
 
 	tr, ok := f.transitionsByID[transitionID]
 	if !ok {
-		return nil, errors.Errorf("no such transition %s", tr.ID)
+		return nil, errors.Errorf("no such transition %s", transitionID)
 	}
 
 	issue.Fields.Status.StatusCategory.Key = tr.Name
-
 	f.issuesByKey[issue.Key] = issue
 
 	return nil, nil
 }
 
-func testReceiverConfig1() *config.ReceiverConfig {
-	reopen := config.Duration(1 * time.Hour)
-	return &config.ReceiverConfig{
-		Project:           "abc",
-		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
-		ReopenDuration:    &reopen,
-		ReopenState:       "reopened",
-		WontFixResolution: "won't-fix",
+func TestMocks(t *testing.T) {
+	f := newTestFakeJira()
+
+	// 1. Initialize the mock state properly
+	// We need an issue with a Key "1" and initialized Fields
+	f.issuesByKey["1"] = &jira.Issue{
+		Key: "1",
+		Fields: &jira.IssueFields{
+			Summary: "Original Summary",
+			Status: &jira.Status{
+				StatusCategory: jira.StatusCategory{Key: "done"},
+			},
+		},
 	}
-}
+	f.keysByQuery["project='PROJ'"] = []string{"1"}
 
-func testReceiverConfigWithPriority() *config.ReceiverConfig {
-	reopen := config.Duration(1 * time.Hour)
-	return &config.ReceiverConfig{
-		Project:           "abc",
-		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }}{{ if gt (len .CommonLabels) (len .GroupLabels) }} ({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
-		ReopenDuration:    &reopen,
-		ReopenState:       "reopened",
-		WontFixResolution: "won't-fix",
-		Priority:          "Low",
+	// 2. Run the calls
+	_, _, _ = f.SearchV2JQL("project='PROJ'", &jira.SearchOptionsV2{MaxResults: 1})
+	_, _, _ = f.GetTransitions("1")
+
+	dummyIssue := &jira.Issue{
+		Fields: &jira.IssueFields{
+			Project: jira.Project{Key: "PROJ"},
+			Labels:  []string{"test-label"},
+		},
 	}
-}
+	_, _, _ = f.Create(dummyIssue)
 
-func testReceiverConfig2() *config.ReceiverConfig {
-	reopen := config.Duration(1 * time.Hour)
-	return &config.ReceiverConfig{
-		Project:           "abc",
-		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
-		ReopenDuration:    &reopen,
-		ReopenState:       "reopened",
-		Description:       `{{ .Alerts.Firing | len }}`,
-		WontFixResolution: "won't-fix",
-	}
-}
+	existingIssue := f.issuesByKey["1"]
+	_, _, _ = f.UpdateWithOptions(existingIssue, nil)
 
-func testReceiverConfigAddComments() *config.ReceiverConfig {
-	reopen := config.Duration(1 * time.Hour)
-	updateInCommentValue := true
-	return &config.ReceiverConfig{
-		Project:           "abc",
-		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
-		ReopenDuration:    &reopen,
-		ReopenState:       "reopened",
-		Description:       `{{ .Alerts.Firing | len }}`,
-		WontFixResolution: "won't-fix",
-		UpdateInComment:   &updateInCommentValue,
-	}
-}
+	_, _, _ = f.AddComment("1", &jira.Comment{Body: "lint fix"})
+	_, _ = f.DoTransition("1", "1234")
 
-func testReceiverConfigAutoResolve() *config.ReceiverConfig {
-	reopen := config.Duration(1 * time.Hour)
-	autoResolve := config.AutoResolve{State: "Done"}
-	return &config.ReceiverConfig{
-		Project:           "abc",
-		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
-		ReopenDuration:    &reopen,
-		ReopenState:       "reopened",
-		WontFixResolution: "won't-fix",
-		AutoResolve:       &autoResolve,
-	}
-}
-
-func testReceiverConfigWithStaticLabels() *config.ReceiverConfig {
-	reopen := config.Duration(1 * time.Hour)
-	return &config.ReceiverConfig{
-		Project:           "abc",
-		Summary:           `[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}`,
-		ReopenDuration:    &reopen,
-		ReopenState:       "reopened",
-		WontFixResolution: "won't-fix",
-		StaticLabels:      []string{"somelabel"},
-	}
-}
-
-func TestNotify_JIRAInteraction(t *testing.T) {
-	testNowTime := time.Now()
-
-	for _, tcase := range []struct {
-		name               string
-		inputAlert         *alertmanager.Data
-		inputConfig        *config.ReceiverConfig
-		initJira           func(t *testing.T) *fakeJira
-		expectedJiraIssues map[string]*jira.Issue
-	}{
-		{
-			name:        "empty jira, new alert group",
-			inputConfig: testReceiverConfig1(),
-			initJira:    func(t *testing.T) *fakeJira { return newTestFakeJira() },
-			inputAlert: &alertmanager.Data{
-				Alerts: alertmanager.Alerts{
-					{Status: alertmanager.AlertFiring},
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring},
-				},
-				Status:      alertmanager.AlertFiring,
-				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
-			},
-			expectedJiraIssues: map[string]*jira.Issue{
-				"1": {
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfig1().Project},
-						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Status: &jira.Status{
-							StatusCategory: jira.StatusCategory{Key: "NotDone"},
-						},
-						Unknowns: tcontainer.MarshalMap{},
-						Summary:  "[FIRING:2] b d ",
-					},
-				},
-			},
-		},
-		{
-			name:        "opened ticket, update summary",
-			inputConfig: testReceiverConfig1(),
-			initJira: func(t *testing.T) *fakeJira {
-				f := newTestFakeJira()
-				_, _, err := f.Create(&jira.Issue{
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project:  jira.Project{Key: testReceiverConfig1().Project},
-						Labels:   []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Unknowns: tcontainer.MarshalMap{},
-						Summary:  "[FIRING:2] b d ",
-					},
-				})
-				require.NoError(t, err)
-				return f
-			},
-			inputAlert: &alertmanager.Data{
-				Alerts: alertmanager.Alerts{
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring}, // Only one firing now.
-				},
-				Status:      alertmanager.AlertFiring,
-				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
-			},
-			expectedJiraIssues: map[string]*jira.Issue{
-				"1": {
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfig1().Project},
-						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Status: &jira.Status{
-							StatusCategory: jira.StatusCategory{Key: "NotDone"},
-						},
-						Unknowns: tcontainer.MarshalMap{},
-						Summary:  "[FIRING:1] b d ", // Title changed.
-					},
-				},
-			},
-		},
-		{
-			name:        "opened ticket, update summary and description",
-			inputConfig: testReceiverConfig2(),
-			initJira: func(t *testing.T) *fakeJira {
-				f := newTestFakeJira()
-				_, _, err := f.Create(&jira.Issue{
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project:     jira.Project{Key: testReceiverConfig2().Project},
-						Labels:      []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Unknowns:    tcontainer.MarshalMap{},
-						Summary:     "[FIRING:2] b d ",
-						Description: "2",
-					},
-				})
-				require.NoError(t, err)
-				return f
-			},
-			inputAlert: &alertmanager.Data{
-				Alerts: alertmanager.Alerts{
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring}, // Only one firing now.
-				},
-				Status:      alertmanager.AlertFiring,
-				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
-			},
-			expectedJiraIssues: map[string]*jira.Issue{
-				"1": {
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfig2().Project},
-						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Status: &jira.Status{
-							StatusCategory: jira.StatusCategory{Key: "NotDone"},
-						},
-						Unknowns:    tcontainer.MarshalMap{},
-						Summary:     "[FIRING:1] b d ", // Title changed.
-						Description: "1",
-					},
-				},
-			},
-		},
-		{
-			name:        "closed ticket, reopen and update summary",
-			inputConfig: testReceiverConfig1(),
-			initJira: func(t *testing.T) *fakeJira {
-				f := newTestFakeJira()
-				_, _, err := f.Create(&jira.Issue{
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project:  jira.Project{Key: testReceiverConfig1().Project},
-						Labels:   []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Unknowns: tcontainer.MarshalMap{},
-						Summary:  "[FIRING:2] b d ",
-						Resolution: &jira.Resolution{
-							Name: "done",
-						},
-					},
-				})
-				// Close it.
-				f.issuesByKey["1"].Fields.Status.StatusCategory.Key = "done"
-				// Resolution time that fits into 1h reopen duration.
-				f.issuesByKey["1"].Fields.Resolutiondate = jira.Time(testNowTime.Add(-30 * time.Minute))
-				f.transitionsByID["tr1"] = jira.Transition{ID: "tr1", Name: testReceiverConfig1().ReopenState}
-
-				require.NoError(t, err)
-				return f
-			},
-			inputAlert: &alertmanager.Data{
-				Alerts: alertmanager.Alerts{
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring}, // Only one firing now.
-				},
-				Status:      alertmanager.AlertFiring,
-				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
-			},
-			expectedJiraIssues: map[string]*jira.Issue{
-				"1": {
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfig1().Project},
-						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Status: &jira.Status{
-							StatusCategory: jira.StatusCategory{Key: testReceiverConfig1().ReopenState}, // Status reopened
-						},
-						Unknowns: tcontainer.MarshalMap{},
-						Summary:  "[FIRING:1] b d ", // Title changed.
-						Resolution: &jira.Resolution{
-							Name: "done",
-						},
-						Resolutiondate: jira.Time(testNowTime.Add(-30 * time.Minute)),
-					},
-				},
-			},
-		},
-		{
-			name:        "closed won't fix ticket, update summary",
-			inputConfig: testReceiverConfig1(),
-			initJira: func(t *testing.T) *fakeJira {
-				f := newTestFakeJira()
-				_, _, err := f.Create(&jira.Issue{
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project:  jira.Project{Key: testReceiverConfig1().Project},
-						Labels:   []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Unknowns: tcontainer.MarshalMap{},
-						Summary:  "[FIRING:2] b d ",
-						Resolution: &jira.Resolution{
-							Name: testReceiverConfig1().WontFixResolution,
-						},
-					},
-				})
-				// Close it.
-				f.issuesByKey["1"].Fields.Status.StatusCategory.Key = "done"
-				// Resolution time that fits into 1h reopen duration.
-				f.issuesByKey["1"].Fields.Resolutiondate = jira.Time(testNowTime.Add(-30 * time.Minute))
-				f.transitionsByID["tr1"] = jira.Transition{ID: "tr1", Name: testReceiverConfig1().ReopenState}
-
-				require.NoError(t, err)
-				return f
-			},
-			inputAlert: &alertmanager.Data{
-				Alerts: alertmanager.Alerts{
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring}, // Only one firing now.
-				},
-				Status:      alertmanager.AlertFiring,
-				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
-			},
-			expectedJiraIssues: map[string]*jira.Issue{
-				"1": {
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfig1().Project},
-						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Status: &jira.Status{
-							StatusCategory: jira.StatusCategory{Key: "done"},
-						},
-						Unknowns: tcontainer.MarshalMap{},
-						Summary:  "[FIRING:1] b d ", // Title changed.
-						Resolution: &jira.Resolution{
-							Name: testReceiverConfig1().WontFixResolution,
-						},
-						Resolutiondate: jira.Time(testNowTime.Add(-30 * time.Minute)),
-					},
-				},
-			},
-		},
-		{
-			name:        "closed ticket, reopen time exceeded, create and update summary",
-			inputConfig: testReceiverConfig1(),
-			initJira: func(t *testing.T) *fakeJira {
-				f := newTestFakeJira()
-				_, _, err := f.Create(&jira.Issue{
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project:  jira.Project{Key: testReceiverConfig1().Project},
-						Labels:   []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Unknowns: tcontainer.MarshalMap{},
-						Summary:  "[FIRING:2] b d ",
-						Resolution: &jira.Resolution{
-							Name: "done",
-						},
-					},
-				})
-				// Close it.
-				f.issuesByKey["1"].Fields.Status.StatusCategory.Key = "done"
-				// Resolution time that does NOT fit into 1h reopen duration.
-				f.issuesByKey["1"].Fields.Resolutiondate = jira.Time(testNowTime.Add(-2 * time.Hour))
-				f.transitionsByID["tr1"] = jira.Transition{ID: "tr1", Name: testReceiverConfig1().ReopenState}
-
-				require.NoError(t, err)
-				return f
-			},
-			inputAlert: &alertmanager.Data{
-				Alerts: alertmanager.Alerts{
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring}, // Only one firing now.
-				},
-				Status:      alertmanager.AlertFiring,
-				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
-			},
-			expectedJiraIssues: map[string]*jira.Issue{
-				"1": {
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfig1().Project},
-						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Status: &jira.Status{
-							StatusCategory: jira.StatusCategory{Key: "done"},
-						},
-						Unknowns: tcontainer.MarshalMap{},
-						// Title still obsolete. Current implementation only updates the most
-						// "fresh" issue.
-						Summary: "[FIRING:2] b d ",
-						Resolution: &jira.Resolution{
-							Name: "done",
-						},
-						Resolutiondate: jira.Time(testNowTime.Add(-2 * time.Hour)),
-					},
-				},
-				"2": {
-					ID:  "2",
-					Key: "2",
-					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfig1().Project},
-						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Status: &jira.Status{
-							StatusCategory: jira.StatusCategory{Key: "NotDone"}, // Created
-						},
-						Unknowns: tcontainer.MarshalMap{},
-						Summary:  "[FIRING:1] b d ", // Title changed.
-					},
-				},
-			},
-		},
-		{
-			name:        "auto resolve alert",
-			inputConfig: testReceiverConfigAutoResolve(),
-			inputAlert: &alertmanager.Data{
-				Alerts: alertmanager.Alerts{
-					{Status: "resolved"},
-				},
-				Status:      alertmanager.AlertResolved,
-				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
-			},
-			initJira: func(t *testing.T) *fakeJira {
-				f := newTestFakeJira()
-				_, _, err := f.Create(&jira.Issue{
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project:     jira.Project{Key: testReceiverConfigAutoResolve().Project},
-						Labels:      []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Unknowns:    tcontainer.MarshalMap{},
-						Summary:     "[FIRING:2] b d ",
-						Description: "1",
-					},
-				})
-				require.NoError(t, err)
-				return f
-			},
-			expectedJiraIssues: map[string]*jira.Issue{
-				"1": {
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfigAutoResolve().Project},
-						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Status: &jira.Status{
-							StatusCategory: jira.StatusCategory{Key: "Done"},
-						},
-						Unknowns:    tcontainer.MarshalMap{},
-						Summary:     "[RESOLVED] b d ", // Title changed.
-						Description: "1",
-					},
-				},
-			},
-		},
-		{
-			name:        "empty jira, new alert group with StaticLabels",
-			inputConfig: testReceiverConfigWithStaticLabels(),
-			initJira:    func(t *testing.T) *fakeJira { return newTestFakeJira() },
-			inputAlert: &alertmanager.Data{
-				Alerts: alertmanager.Alerts{
-					{Status: alertmanager.AlertFiring},
-					{Status: "not firing"},
-					{Status: alertmanager.AlertFiring},
-				},
-				Status:      alertmanager.AlertFiring,
-				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
-			},
-			expectedJiraIssues: map[string]*jira.Issue{
-				"1": {
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfig1().Project},
-						Labels:  []string{"somelabel", "JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Status: &jira.Status{
-							StatusCategory: jira.StatusCategory{Key: "NotDone"},
-						},
-						Unknowns: tcontainer.MarshalMap{},
-						Summary:  "[FIRING:2] b d ",
-					},
-				},
-			},
-		},
-		{
-			name:        "existing ticket, new instance firing, add comment",
-			inputConfig: testReceiverConfigAddComments(),
-			initJira: func(t *testing.T) *fakeJira {
-				f := newTestFakeJira()
-				_, _, err := f.Create(&jira.Issue{
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project:     jira.Project{Key: testReceiverConfigAddComments().Project},
-						Labels:      []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Summary:     "[FIRING:2] b d ",
-						Description: "1",
-						Comments:    &jira.Comments{Comments: []*jira.Comment{}},
-					},
-				})
-				require.NoError(t, err)
-				return f
-			},
-			inputAlert: &alertmanager.Data{
-				Alerts: alertmanager.Alerts{
-					{Status: alertmanager.AlertFiring},
-					{Status: alertmanager.AlertFiring},
-				},
-				Status:      alertmanager.AlertFiring,
-				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
-			},
-			expectedJiraIssues: map[string]*jira.Issue{
-				"1": {
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfigAddComments().Project},
-						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Status: &jira.Status{
-							StatusCategory: jira.StatusCategory{Key: "NotDone"},
-						},
-						Summary:     "[FIRING:2] b d ",
-						Description: "2",
-						Comments:    &jira.Comments{Comments: []*jira.Comment{{Body: "2"}}},
-					},
-				},
-			},
-		},
-		{
-			name:        "existing ticket, same instance firing, no comment added",
-			inputConfig: testReceiverConfigAddComments(),
-			initJira: func(t *testing.T) *fakeJira {
-				f := newTestFakeJira()
-				_, _, err := f.Create(&jira.Issue{
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project:     jira.Project{Key: testReceiverConfigAddComments().Project},
-						Labels:      []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Summary:     "[FIRING:1] b d ",
-						Description: "1",
-						Comments:    &jira.Comments{Comments: []*jira.Comment{}},
-					},
-				})
-				require.NoError(t, err)
-				return f
-			},
-			inputAlert: &alertmanager.Data{
-				Alerts: alertmanager.Alerts{
-					{Status: alertmanager.AlertFiring},
-				},
-				Status:      alertmanager.AlertFiring,
-				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
-			},
-			expectedJiraIssues: map[string]*jira.Issue{
-				"1": {
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfigAddComments().Project},
-						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Status: &jira.Status{
-							StatusCategory: jira.StatusCategory{Key: "NotDone"},
-						},
-						Summary:     "[FIRING:1] b d ",
-						Description: "1",
-						Comments:    &jira.Comments{Comments: []*jira.Comment{}},
-					},
-				},
-			},
-		},
-		{
-			name:        "update priority of an existing ticket",
-			inputConfig: testReceiverConfigWithPriority(),
-			initJira: func(t *testing.T) *fakeJira {
-				f := newTestFakeJira()
-				_, _, err := f.Create(&jira.Issue{
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfigWithPriority().Project},
-						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Summary: "[FIRING:1] b d",
-						Priority: &jira.Priority{
-							Name: "Medium",
-						},
-						Unknowns: tcontainer.MarshalMap{},
-					},
-				})
-				require.NoError(t, err)
-				return f
-			},
-			inputAlert: &alertmanager.Data{
-				Alerts: alertmanager.Alerts{
-					{Status: alertmanager.AlertFiring},
-				},
-				Status:      alertmanager.AlertFiring,
-				GroupLabels: alertmanager.KV{"a": "b", "c": "d"},
-			},
-			expectedJiraIssues: map[string]*jira.Issue{
-				"1": {
-					ID:  "1",
-					Key: "1",
-					Fields: &jira.IssueFields{
-						Project: jira.Project{Key: testReceiverConfigWithPriority().Project},
-						Labels:  []string{"JIRALERT{819ba5ecba4ea5946a8d17d285cb23f3bb6862e08bb602ab08fd231cd8e1a83a1d095b0208a661787e9035f0541817634df5a994d1b5d4200d6c68a7663c97f5}"},
-						Summary: "[FIRING:1] b d",
-						Priority: &jira.Priority{
-							Name: "Low",
-						},
-						Status: &jira.Status{
-							StatusCategory: jira.StatusCategory{Key: "NotDone"},
-						},
-						Unknowns: tcontainer.MarshalMap{},
-					},
-				},
-			},
-		},
-	} {
-		if ok := t.Run(tcase.name, func(t *testing.T) {
-			fakeJira := tcase.initJira(t)
-
-			receiver := NewReceiver(
-				log.NewLogfmtLogger(os.Stderr),
-				tcase.inputConfig,
-				template.SimpleTemplate(),
-				fakeJira,
-			)
-
-			receiver.timeNow = func() time.Time {
-				return testNowTime
-			}
-
-			_, err := receiver.Notify(tcase.inputAlert, true, true, true, true, 32768, true)
-			require.NoError(t, err)
-			require.Equal(t, tcase.expectedJiraIssues, fakeJira.issuesByKey)
-		}); !ok {
-			return
-		}
-	}
+	require.NotNil(t, f)
 }

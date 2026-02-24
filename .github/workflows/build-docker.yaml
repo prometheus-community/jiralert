@@ -1,8 +1,11 @@
+# TODO: Move to Onefootball ECR
+
 name: build-docker
 
 on:
-  release:
-    types: [published]
+  # release:
+  #   types: [published]
+  workflow_dispatch:
 
 jobs:
   build:
