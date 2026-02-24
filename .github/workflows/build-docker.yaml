@@ -7,23 +7,34 @@ on:
   #   types: [published]
   workflow_dispatch:
 
+permissions:
+  id-token: write # This is required for OIDC authentication to AWS ECR
+  contents: read
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: linux-arm64-runner # Our self-hosted ARM runner
+    timeout-minutes: 15
+
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v3
-      with:
-        go-version-file: 'go.mod'
-    - name: Login to quay.io Docker Image Registry
-      uses: docker/login-action@v1
-      with:
-        registry: quay.io
-        username: "${{ secrets.QUAY_USER }}"
-        password: "${{ secrets.QUAY_PASS }}"
-    - run: make docker docker-publish
-      env:
-        DOCKER_IMAGE_TAG: ${{ github.event.release.tag_name }}
-    - run: make docker docker-publish
-      env:
-        DOCKER_IMAGE_TAG: latest
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: go mod vendor
+      - id: build-and-push-native-image
+        uses: motain/onefootball-actions/docker-build-push-native@master
+        with:
+          mode: build-native
+          tag: latest
+          arch: ${{ matrix.arch }}
+          secrets: |
+            JIRA_TOKEN=${{ secrets.JIRA_TOKEN }}
