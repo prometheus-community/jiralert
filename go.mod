@@ -1,9 +1,9 @@
 module github.com/prometheus-community/jiralert
 
-go 1.23.0
+go 1.26.0
 
 require (
-	github.com/andygrunwald/go-jira v1.16.0
+	github.com/andygrunwald/go-jira v1.17.0
 	github.com/go-kit/log v0.2.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.22.0

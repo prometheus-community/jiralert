@@ -1,6 +1,7 @@
-/.project
 /.idea
 /release
-/jiralert
 /jiralert*.tar.gz
 /vendor
+.DS_Store
+jiralert
+.env
