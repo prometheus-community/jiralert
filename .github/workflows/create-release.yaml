@@ -92,7 +92,6 @@ jobs:
           ociversion=$(echo "$VERSION" | sed 's/^v//')
           echo "ociversion=$ociversion" >> "$GITHUB_OUTPUT"
           echo "Creating binaries for: $VERSION"
-          echo "Creating helm charts for: $ociversion"
       - id: ldflags
         run: |
           echo "commit-date=$(git log --date=iso8601-strict -1 --pretty=%ct)" >> "$GITHUB_OUTPUT"
@@ -128,7 +127,7 @@ jobs:
       upload-tag-name: ${{ needs.prepare-args.outputs.version }}
   build-docker:
     runs-on: ubuntu-latest
-    needs: get-version
+    needs: prepare-args
     steps:
       # - name: Checkout code
       #   uses: actions/checkout@v4
