@@ -1,6 +1,10 @@
 /.project
 /.idea
+/.vscode
+/.config
 /release
 /jiralert
 /jiralert*.tar.gz
 /vendor
+.DS_Store
+__debug*

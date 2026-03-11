@@ -52,7 +52,7 @@ func newTestFakeJira() *fakeJira {
 	}
 }
 
-func (f *fakeJira) Search(jql string, options *jira.SearchOptions) ([]jira.Issue, *jira.Response, error) {
+func (f *fakeJira) SearchV2JQL(jql string, options *jira.SearchOptionsV2) ([]jira.Issue, *jira.Response, error) {
 	var issues []jira.Issue
 	for _, key := range f.keysByQuery[jql] {
 		issue := jira.Issue{Key: key, Fields: &jira.IssueFields{}}

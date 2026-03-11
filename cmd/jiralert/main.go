@@ -21,6 +21,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"time"
 
 	"github.com/andygrunwald/go-jira"
 	"github.com/go-kit/log"
@@ -87,10 +88,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	http.HandleFunc("/alert", func(w http.ResponseWriter, req *http.Request) {
+	alertHandler := func(w http.ResponseWriter, req *http.Request) {
 		level.Debug(logger).Log("msg", "handling /alert webhook request")
 		defer func() { _ = req.Body.Close() }()
-
+		// Wait here 5 seconds before processing the request
+		select {
+		case <-req.Context().Done():
+			// Request was cancelled before 5 seconds elapsed
+			return
+		case <-time.After(1 * time.Second):
+			// Continue after 5 seconds
+		}
 		// https://godoc.org/github.com/prometheus/alertmanager/template#Data
 		data := alertmanager.Data{}
 		if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
@@ -139,20 +147,22 @@ func main() {
 			return
 		}
 		requestTotal.WithLabelValues(conf.Name, "200").Inc()
+	}
 
-	})
+	mux := http.NewServeMux()
 
-	http.HandleFunc("/", HomeHandlerFunc())
-	http.HandleFunc("/config", ConfigHandlerFunc(config))
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "OK", http.StatusOK) })
-	http.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/alert", limitRequests(2, 10, http.HandlerFunc(alertHandler)))
+	mux.HandleFunc("/", HomeHandlerFunc())
+	mux.HandleFunc("/config", ConfigHandlerFunc(config))
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "OK", http.StatusOK) })
+	mux.Handle("/metrics", promhttp.Handler())
 
 	if os.Getenv("PORT") != "" {
 		*listenAddress = ":" + os.Getenv("PORT")
 	}
 
 	level.Info(logger).Log("msg", "listening", "address", *listenAddress)
-	err = http.ListenAndServe(*listenAddress, nil)
+	err = http.ListenAndServe(*listenAddress, mux)
 	if err != nil {
 		level.Error(logger).Log("msg", "failed to start HTTP server", "address", *listenAddress)
 		os.Exit(1)
