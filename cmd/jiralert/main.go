@@ -151,7 +151,13 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.Handle("/alert", limitRequests(2, 10, http.HandlerFunc(alertHandler)))
+	if config.RateLimiting != nil {
+		logger.Log("msg", "enabling rate limiting", "maxConcurrent", config.RateLimiting.MaxConcurrent, "maxQueue", config.RateLimiting.MaxQueue)
+		mux.Handle("/alert", limitRequests(config.RateLimiting.MaxConcurrent, config.RateLimiting.MaxQueue, http.HandlerFunc(alertHandler)))
+	} else {
+		logger.Log("msg", "rate limiting disabled")
+		mux.Handle("/alert", http.HandlerFunc(alertHandler))
+	}
 	mux.HandleFunc("/", HomeHandlerFunc())
 	mux.HandleFunc("/config", ConfigHandlerFunc(config))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "OK", http.StatusOK) })

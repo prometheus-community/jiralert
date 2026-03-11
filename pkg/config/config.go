@@ -178,12 +178,18 @@ func (rc *ReceiverConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 
 // Config is the top-level configuration for JIRAlert's config file.
 type Config struct {
-	Defaults  *ReceiverConfig   `yaml:"defaults,omitempty" json:"defaults,omitempty"`
-	Receivers []*ReceiverConfig `yaml:"receivers,omitempty" json:"receivers,omitempty"`
-	Template  string            `yaml:"template" json:"template"`
+	Defaults     *ReceiverConfig   `yaml:"defaults,omitempty" json:"defaults,omitempty"`
+	Receivers    []*ReceiverConfig `yaml:"receivers,omitempty" json:"receivers,omitempty"`
+	Template     string            `yaml:"template" json:"template"`
+	RateLimiting *RateLimiting     `yaml:"rate_limiting,omitempty" json:"rate_limiting,omitempty"`
 
 	// Catches all undefined fields and must be empty after parsing.
 	XXX map[string]interface{} `yaml:",inline" json:"-"`
+}
+
+type RateLimiting struct {
+	MaxConcurrent int `yaml:"max_concurrent" json:"max_concurrent" doc:"Maximum number of concurrent requests allowed to the JIRA API."`
+	MaxQueue      int `yaml:"max_queue" json:"max_queue" doc:"Maximum number of requests allowed in the queue."`
 }
 
 func (c Config) String() string {
