@@ -190,6 +190,7 @@ type Config struct {
 type RateLimiting struct {
 	MaxConcurrent int `yaml:"max_concurrent" json:"max_concurrent" doc:"Maximum number of concurrent requests allowed to the JIRA API."`
 	MaxQueue      int `yaml:"max_queue" json:"max_queue" doc:"Maximum number of requests allowed in the queue."`
+	MinWait       int `yaml:"min_wait" json:"min_wait" doc:"Minimum wait time in milliseconds between requests to the JIRA API."`
 }
 
 func (c Config) String() string {

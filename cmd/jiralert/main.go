@@ -21,7 +21,6 @@ import (
 	"os"
 	"runtime"
 	"strconv"
-	"time"
 
 	"github.com/andygrunwald/go-jira"
 	"github.com/go-kit/log"
@@ -92,13 +91,6 @@ func main() {
 		level.Debug(logger).Log("msg", "handling /alert webhook request")
 		defer func() { _ = req.Body.Close() }()
 		// Wait here 5 seconds before processing the request
-		select {
-		case <-req.Context().Done():
-			// Request was cancelled before 5 seconds elapsed
-			return
-		case <-time.After(1 * time.Second):
-			// Continue after 5 seconds
-		}
 		// https://godoc.org/github.com/prometheus/alertmanager/template#Data
 		data := alertmanager.Data{}
 		if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
@@ -153,7 +145,7 @@ func main() {
 
 	if config.RateLimiting != nil {
 		logger.Log("msg", "enabling rate limiting", "maxConcurrent", config.RateLimiting.MaxConcurrent, "maxQueue", config.RateLimiting.MaxQueue)
-		mux.Handle("/alert", limitRequests(config.RateLimiting.MaxConcurrent, config.RateLimiting.MaxQueue, http.HandlerFunc(alertHandler)))
+		mux.Handle("/alert", limitRequests(config.RateLimiting.MaxConcurrent, config.RateLimiting.MaxQueue, config.RateLimiting.MinWait, http.HandlerFunc(alertHandler), logger))
 	} else {
 		logger.Log("msg", "rate limiting disabled")
 		mux.Handle("/alert", http.HandlerFunc(alertHandler))

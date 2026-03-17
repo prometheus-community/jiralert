@@ -15,9 +15,13 @@ package main
 
 import (
 	"net/http"
+	"time"
+
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 )
 
-func limitRequests(maxConcurrent, maxQueue int, next http.Handler) http.Handler {
+func limitRequests(maxConcurrent, maxQueue int, minWait int, next http.Handler, logger log.Logger) http.Handler {
 	if maxConcurrent <= 0 {
 		panic("maxConcurrent must be > 0")
 	}
@@ -47,7 +51,14 @@ func limitRequests(maxConcurrent, maxQueue int, next http.Handler) http.Handler 
 		select {
 		case slots <- struct{}{}:
 			defer func() { <-slots }()
+			startTime := time.Now()
 			next.ServeHTTP(w, r)
+			endTime := time.Now()
+			elapsed := endTime.Sub(startTime)
+			if elapsed < time.Duration(minWait)*time.Millisecond {
+				time.Sleep(time.Duration(minWait)*time.Millisecond - elapsed)
+				level.Info(logger).Log("msg", "enforced minimum wait time between requests", "minWait", minWait, "actualWait", elapsed.Milliseconds())
+			}
 		case <-r.Context().Done():
 			return
 		}
