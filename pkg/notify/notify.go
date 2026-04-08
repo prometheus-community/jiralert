@@ -25,7 +25,6 @@ import (
 	"github.com/andygrunwald/go-jira"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/pkg/errors"
 	"github.com/prometheus-community/jiralert/pkg/alertmanager"
 	"github.com/prometheus-community/jiralert/pkg/config"
 	"github.com/prometheus-community/jiralert/pkg/template"
@@ -64,7 +63,7 @@ func NewReceiver(logger log.Logger, c *config.ReceiverConfig, t *template.Templa
 func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSummary bool, updateDescription bool, reopenTickets bool, maxDescriptionLength int, updatePriority bool) (bool, error) {
 	project, err := r.tmpl.Execute(r.conf.Project, data)
 	if err != nil {
-		return false, errors.Wrap(err, "generate project from template")
+		return false, fmt.Errorf("generate project from template: %w", err)
 	}
 
 	issueGroupLabel := toGroupTicketLabel(data.GroupLabels, hashJiraLabel)
@@ -78,17 +77,17 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 	// This allows reflecting current group state if desired by user e.g {{ len $.Alerts.Firing() }}
 	issueSummary, err := r.tmpl.Execute(r.conf.Summary, data)
 	if err != nil {
-		return false, errors.Wrap(err, "generate summary from template")
+		return false, fmt.Errorf("generate summary from template: %w", err)
 	}
 
 	issuePriority, err := r.tmpl.Execute(r.conf.Priority, data)
 	if err != nil {
-		return false, errors.Wrap(err, "generate priority from template")
+		return false, fmt.Errorf("generate priority from template: %w", err)
 	}
 
 	issueDesc, err := r.tmpl.Execute(r.conf.Description, data)
 	if err != nil {
-		return false, errors.Wrap(err, "render issue description")
+		return false, fmt.Errorf("render issue description: %w", err)
 	}
 
 	if len(issueDesc) > maxDescriptionLength {
@@ -194,7 +193,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 
 	issueType, err := r.tmpl.Execute(r.conf.IssueType, data)
 	if err != nil {
-		return false, errors.Wrap(err, "render issue type")
+		return false, fmt.Errorf("render issue type: %w", err)
 	}
 
 	staticLabels := r.conf.StaticLabels
@@ -212,7 +211,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 	if r.conf.Priority != "" {
 		issuePrio, err := r.tmpl.Execute(r.conf.Priority, data)
 		if err != nil {
-			return false, errors.Wrap(err, "render issue priority")
+			return false, fmt.Errorf("render issue priority: %w", err)
 		}
 
 		issue.Fields.Priority = &jira.Priority{Name: issuePrio}
@@ -223,7 +222,7 @@ func (r *Receiver) Notify(data *alertmanager.Data, hashJiraLabel bool, updateSum
 		for _, component := range r.conf.Components {
 			issueComp, err := r.tmpl.Execute(component, data)
 			if err != nil {
-				return false, errors.Wrap(err, "render issue component")
+				return false, fmt.Errorf("render issue component: %w", err)
 			}
 
 			issue.Fields.Components = append(issue.Fields.Components, &jira.Component{Name: issueComp})
@@ -461,9 +460,9 @@ func handleJiraErrResponse(api string, resp *jira.Response, err error, logger lo
 		// Sometimes go-jira consumes the body (e.g. in `Search`) and includes it in the error message;
 		// sometimes (e.g. in `Create`) it doesn't. Include both the error and the body, just in case.
 		body, _ := io.ReadAll(resp.Body)
-		return retry, errors.Errorf("JIRA request %s returned status %s, error %q, body %q", resp.Request.URL, resp.Status, err, body)
+		return retry, fmt.Errorf("JIRA request %s returned status %s, error %q, body %q", resp.Request.URL, resp.Status, err, body)
 	}
-	return false, errors.Wrapf(err, "JIRA request %s failed", api)
+	return false, fmt.Errorf("JIRA request %s failed: %w", api, err)
 }
 
 func (r *Receiver) resolveIssue(issueKey string) (bool, error) {
@@ -488,7 +487,7 @@ func (r *Receiver) doTransition(issueKey string, transitionState string) (bool, 
 			return false, nil
 		}
 	}
-	return false, errors.Errorf("JIRA state %q does not exist or no transition possible for %s", transitionState, issueKey)
+	return false, fmt.Errorf("JIRA state %q does not exist or no transition possible for %s", transitionState, issueKey)
 
 }
 

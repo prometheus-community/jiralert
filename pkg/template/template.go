@@ -15,6 +15,7 @@ package template
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -22,7 +23,6 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/pkg/errors"
 	"golang.org/x/text/cases"
 )
 
@@ -80,16 +80,16 @@ func (t *Template) Execute(text string, data interface{}) (string, error) {
 	tmpl, err := t.tmpl.Clone()
 	if err != nil {
 		// There is literally no return flow in Clone that returns error.
-		return "", errors.Wrap(err, "parse clone tmpl")
+		return "", fmt.Errorf("parse clone tmpl: %w", err)
 	}
 	tmpl, err = tmpl.New("").Parse(text)
 	if err != nil {
-		return "", errors.Wrapf(err, "parse template %s", text)
+		return "", fmt.Errorf("parse template %s: %w", text, err)
 	}
 	var buf bytes.Buffer
 
 	if err = tmpl.Execute(&buf, data); err != nil {
-		return "", errors.Wrapf(err, "execute template %s", text)
+		return "", fmt.Errorf("execute template %s: %w", text, err)
 	}
 	ret := buf.String()
 	level.Debug(t.logger).Log("msg", "template output", "output", ret)

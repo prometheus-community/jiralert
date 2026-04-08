@@ -24,7 +24,6 @@ import (
 	"github.com/trivago/tgo/tcontainer"
 
 	"github.com/go-kit/log"
-	"github.com/pkg/errors"
 	"github.com/prometheus-community/jiralert/pkg/alertmanager"
 	"github.com/prometheus-community/jiralert/pkg/config"
 	"github.com/prometheus-community/jiralert/pkg/template"
@@ -127,7 +126,7 @@ func (f *fakeJira) Create(issue *jira.Issue) (*jira.Issue, *jira.Response, error
 func (f *fakeJira) UpdateWithOptions(old *jira.Issue, _ *jira.UpdateQueryOptions) (*jira.Issue, *jira.Response, error) {
 	issue, ok := f.issuesByKey[old.Key]
 	if !ok {
-		return nil, nil, errors.Errorf("no such issue %s", old.Key)
+		return nil, nil, fmt.Errorf("no such issue %s", old.Key)
 	}
 
 	if old.Fields.Summary != "" {
@@ -155,12 +154,12 @@ func (f *fakeJira) AddComment(issueID string, comment *jira.Comment) (*jira.Comm
 func (f *fakeJira) DoTransition(ticketID, transitionID string) (*jira.Response, error) {
 	issue, ok := f.issuesByKey[ticketID]
 	if !ok {
-		return nil, errors.Errorf("no such issue %s", ticketID)
+		return nil, fmt.Errorf("no such issue %s", ticketID)
 	}
 
 	tr, ok := f.transitionsByID[transitionID]
 	if !ok {
-		return nil, errors.Errorf("no such transition %s", tr.ID)
+		return nil, fmt.Errorf("no such transition %s", tr.ID)
 	}
 
 	issue.Fields.Status.StatusCategory.Key = tr.Name

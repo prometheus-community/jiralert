@@ -27,7 +27,7 @@ import (
 	"github.com/go-kit/log/level"
 
 	"github.com/trivago/tgo/tcontainer"
-	yaml "gopkg.in/yaml.v3"
+	yaml "go.yaml.in/yaml/v3"
 )
 
 // Secret is a string that must not be revealed on marshaling.
