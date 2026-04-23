@@ -14,7 +14,20 @@ Helper to list all merge commits between a release and HEAD: `git log --oneline 
 [0.2]: https://github.com/prometheus-community/jiralert/compare/0.1...0.2
 [0.1]: https://github.com/prometheus-community/jiralert/releases/tag/0.1
 
-## [1.1] - Unreleased
+## 1.4.0 / 2026-04-23
+
+* [CHANGE] Safe limit of 200 characters from group label value #147
+* [CHANGE] Truncate descriptions that exceed -max-description-length #165
+* [FEATURE] Disable update existing jira issues with parameter #150
+* [FEATURE] Add getEnv templating function #153
+* [FEATURE] Add support for static jira labels #154
+* [FEATURE] Add Fingerprint field to Alert so that it may be used in templates #163
+* [FEATURE] Add ability to update in comments #180
+* [FEATURE] Added ability to update Priority of an existing ticket #190
+* [IMPROVEMENT] Better Jira error handling #140
+
+## 1.3.0 / 2023-02-17
+
 ### Added
 - Jiralert docker image [#22](https://github.com/prometheus-community/jiralert/pull/22)
 - Slack button in Readme [#23](https://github.com/prometheus-community/jiralert/pull/23)
