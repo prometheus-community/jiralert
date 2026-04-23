@@ -14,6 +14,10 @@ Helper to list all merge commits between a release and HEAD: `git log --oneline 
 [0.2]: https://github.com/prometheus-community/jiralert/compare/0.1...0.2
 [0.1]: https://github.com/prometheus-community/jiralert/releases/tag/0.1
 
+## 1.4.1 / 2026-04-23
+
+* [BUGFIX] Fix container image build #225
+
 ## 1.4.0 / 2026-04-23
 
 * [CHANGE] Safe limit of 200 characters from group label value #147
